@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono&family=Fraunces:opsz,wght@9..144,400;9..144,600&display=swap');
+
+:root { color: #f6f1e8; background: #1b2a4a; font-family: 'DM Mono', monospace; }
+* { box-sizing: border-box; }
+body { margin: 0; overflow: hidden; }
+button { font: inherit; }
+#world { position: fixed; inset: 0; width: 100%; height: 100%; }
+.screen { display: none; position: fixed; inset: 0; z-index: 2; align-items: center; justify-content: center; flex-direction: column; padding: 32px; text-align: center; background: linear-gradient(110deg, rgba(16,27,45,.8), rgba(23,38,58,.35)); }
+.screen.visible { display: flex; }
+#landing { background: linear-gradient(150deg, rgba(18,31,51,.55), rgba(255,140,26,.17)); }
+#landing.dimmed { display: none; }
+.eyebrow { color: #f7bd73; font-size: 11px; letter-spacing: .16em; }
+h1, h2 { margin: 8px 0 20px; font-family: Fraunces, serif; font-weight: 400; letter-spacing: 0; }
+h1 { font-size: clamp(46px, 9vw, 112px); line-height: .9; } h1 i { color: #ff8c1a; font-style: normal; }
+h2 { font-size: clamp(28px, 4vw, 48px); line-height: 1.05; }
+.pitch { max-width: 460px; color: #e7eef2; line-height: 1.7; }
+.command, .back { border: 1px solid #f7bd73; background: #f7bd73; color: #192741; padding: 13px 22px; margin: 5px; cursor: pointer; letter-spacing: .04em; }
+.command.quiet, .back { background: transparent; color: #f6f1e8; border-color: rgba(246,241,232,.55); }
+.command:hover, .back:hover { background: #ff8c1a; color: #14223b; border-color: #ff8c1a; }
+.chapter-stills { display: flex; gap: 12px; margin: 24px 0; width: min(580px, 100%); }.still { height: 112px; flex: 1; margin: 0; display: flex; align-items: end; padding: 10px; text-align: left; font-size: 10px; letter-spacing: .1em; }.still.helios, .chapter-card.helios { background: linear-gradient(135deg, #783506, #f5d9a8); }.still.selene, .chapter-card.selene { background: linear-gradient(135deg, #1b2a4a, #9ce6f7); }
+.chapter-list { display: grid; grid-template-columns: repeat(2, minmax(210px, 300px)); gap: 12px; }.chapter-card { min-height: 230px; border: 0; color: #17243c; text-align: left; padding: 22px; display: flex; flex-direction: column; cursor: pointer; }.chapter-card:disabled { filter: grayscale(1); opacity: .45; cursor: not-allowed; }.chapter-card span { font-size: 12px; }.chapter-card strong { margin: auto 0 8px; font: 400 42px Fraunces, serif; }.chapter-card small { max-width: 160px; line-height: 1.5; }
+dl { width: min(500px, 100%); margin: 0 0 18px; } dl div { display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,.25); } dd { margin: 0; color: #f7bd73; } #guide > p { max-width: 500px; line-height: 1.65; }
+#hud { position: fixed; z-index: 1; inset: 0; pointer-events: none; padding: 25px; display: none; text-shadow: 0 1px 6px #000; } #hud.visible { display: block; } #chapter-name { letter-spacing: .15em; font-size: 11px; } #objective { max-width: 380px; line-height: 1.6; font-size: 12px; } #scope { position: absolute; left: 50%; top: 50%; width: min(46vw, 430px); aspect-ratio: 1; transform: translate(-50%,-50%); border: 1px solid transparent; border-radius: 50%; transition: border-color .2s; } #scope.raised { border-color: rgba(255,255,255,.8); box-shadow: 0 0 0 200vmax rgba(7,15,27,.38); } #scope span { position: absolute; bottom: -11px; width: 100%; height: 4px; background: #ffba5c; transform-origin: left; } #scope-label { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); font-size: 10px; letter-spacing: .1em; white-space: nowrap; }
+#pause { background: rgba(13,20,33,.88); } #ending { overflow: auto; justify-content: start; padding: 0 0 80px; background: #091222; } .end-image { height: 46vh; min-height: 260px; width: 100%; position: relative; background: radial-gradient(circle at 70% 64%, #ff8c1a 0 3px, #ff8c1a44 4px 18px, transparent 70px), linear-gradient(150deg, #060d1a 20%, #1b2a4a); } .end-image span { position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 100px, #b8deed08 101px 102px); }.myth { max-width: 570px; padding: 34px 25px; }.myth p { line-height: 1.75; }.complete { margin-top: 30px; color: #f7bd73; }
+#notice { min-height: 22px; color: #f7bd73; font-size: 11px; max-width: 350px; line-height: 1.5; }
+@media (max-width: 600px) { .screen { padding: 24px; } .chapter-list { grid-template-columns: 1fr; width: min(100%, 300px); }.chapter-card { min-height: 160px; }.chapter-card strong { margin: auto 0 5px; }.chapter-stills { margin: 16px 0; }.still { height: 85px; } }
