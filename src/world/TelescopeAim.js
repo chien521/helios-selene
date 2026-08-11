@@ -1,8 +1,13 @@
 import * as THREE from 'three'
 
-const RETICLE_RADIUS = 46
-const HOLD_SECONDS = 1.15
+const SPOTLIGHT_RADIUS = 72
+const FOCUS_SECONDS = 1.15
 
+// The scope overlay. This used to own a hold-to-charge targeting system -- point the reticle at a
+// static object, hold the mouse, watch a bar fill. Since the target could not move and the player
+// could not fail, that was a loading bar rather than a challenge, and it was the chapter's only
+// verb. Puzzles now live in routing sunlight through mirrors, so this is purely the visual state of
+// looking through the telescope.
 export class TelescopeAim {
   constructor(overlay, reticle, charge) {
     this.overlay = overlay
@@ -10,8 +15,8 @@ export class TelescopeAim {
     this.charge = charge
     this.raised = false
     this.holding = false
-    this.chargeAmount = 0
-    this.lockedTarget = null
+    this.focusAmount = 0
+    this.focusedTarget = null
     this.pointer = new THREE.Vector2(.5, .5)
     this.projected = new THREE.Vector3()
   }
@@ -19,8 +24,8 @@ export class TelescopeAim {
   raise(camera, playerPosition) {
     this.raised = true
     this.holding = false
-    this.chargeAmount = 0
-    this.lockedTarget = null
+    this.focusAmount = 0
+    this.focusedTarget = null
     this.project(playerPosition, camera)
     this.overlay.classList.add('visible')
     this.render()
@@ -29,8 +34,8 @@ export class TelescopeAim {
   lower() {
     this.raised = false
     this.holding = false
-    this.chargeAmount = 0
-    this.lockedTarget = null
+    this.focusAmount = 0
+    this.focusedTarget = null
     this.overlay.classList.remove('visible')
     this.render()
   }
@@ -41,50 +46,45 @@ export class TelescopeAim {
     this.render()
   }
 
-  beginHold() {
-    if (!this.raised) return
-    this.holding = true
-  }
-
-  cancelHold() {
-    this.holding = false
-    this.chargeAmount = 0
-    this.lockedTarget = null
-    this.render()
-  }
-
-  update(delta, camera, targets) {
-    if (!this.raised) return null
-    const target = this.findTarget(camera, targets)
-    if (!this.holding) return null
-    if (!target || (this.lockedTarget && target.id !== this.lockedTarget.id)) {
-      this.cancelHold()
-      return null
-    }
-    this.lockedTarget = target
-    const holdSeconds = target.holdSeconds ?? HOLD_SECONDS
-    this.chargeAmount = Math.min(1, this.chargeAmount + delta / holdSeconds)
-    this.render()
-    if (this.chargeAmount < 1) return null
-    const resolved = this.lockedTarget
-    this.cancelHold()
-    return resolved
-  }
-
   project(position, camera) {
     this.projected.copy(position).project(camera)
     this.pointer.set((this.projected.x + 1) / 2, (1 - this.projected.y) / 2)
   }
 
-  findTarget(camera, targets) {
-    return targets.find((target) => {
-      if (!target.available()) return false
-      this.projected.copy(target.position).project(camera)
-      const x = (this.projected.x + 1) / 2
-      const y = (1 - this.projected.y) / 2
-      const distance = Math.hypot((x - this.pointer.x) * innerWidth, (y - this.pointer.y) * innerHeight)
-      return this.projected.z >= -1 && this.projected.z <= 1 && distance <= RETICLE_RADIUS
-    }) ?? null
+  hovers(position, camera) {
+    if (!this.raised) return false
+    this.projected.copy(position).project(camera)
+    if (this.projected.z < -1 || this.projected.z > 1) return false
+    const x = (this.projected.x + 1) / 2
+    const y = (1 - this.projected.y) / 2
+    return Math.hypot((x - this.pointer.x) * innerWidth, (y - this.pointer.y) * innerHeight) <= SPOTLIGHT_RADIUS
+  }
+
+  beginFocus() {
+    if (this.raised) this.holding = true
+  }
+
+  cancelFocus() {
+    this.holding = false
+    this.focusAmount = 0
+    this.focusedTarget = null
+    this.render()
+  }
+
+  updateFocus(delta, camera, targets) {
+    if (!this.raised || !this.holding) return null
+    const target = targets.find((entry) => entry.group.visible && this.hovers(entry.position, camera))
+    if (!target || (this.focusedTarget && target !== this.focusedTarget)) {
+      this.cancelFocus()
+      return null
+    }
+    this.focusedTarget = target
+    this.focusAmount = Math.min(1, this.focusAmount + delta / FOCUS_SECONDS)
+    this.render()
+    if (this.focusAmount < 1) return null
+    const focused = this.focusedTarget
+    this.cancelFocus()
+    return focused
   }
 
   render() {
@@ -92,7 +92,7 @@ export class TelescopeAim {
     this.reticle.style.top = `${this.pointer.y * 100}%`
     this.overlay.style.setProperty('--aim-x', `${this.pointer.x * 100}%`)
     this.overlay.style.setProperty('--aim-y', `${this.pointer.y * 100}%`)
-    this.charge.style.transform = `scaleX(${this.chargeAmount})`
+    this.charge.style.transform = `scaleX(${this.focusAmount})`
     this.overlay.classList.toggle('holding', this.holding)
   }
 }

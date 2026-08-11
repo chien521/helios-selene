@@ -1,20 +1,17 @@
-// Sustained-focus duration to fill the scope, in seconds. Ramps from MIN near the chapter's
-// start to MAX near its end -- the doc calls for hold time to track the color-grade progress
-// "doubling as a difficulty curve," so later focus checks demand a longer hold than earlier ones.
-const MIN_FOCUS_SECONDS = 1.8
-const MAX_FOCUS_SECONDS = 3.6
-
+// The telescope's state, not a timer. An earlier version carried a MIN/MAX focus-duration ramp
+// that scaled how long the player had to hold a button as the level progressed, on the theory that
+// hold time "doubles as a difficulty curve". It does not: duration is only difficulty when
+// something can go wrong during it, and nothing could. Difficulty now comes from the length of the
+// mirror chain a puzzle requires. See SunBeam.js.
 export class Telescope {
   constructor() {
     this.raised = false
     this.aimUnlocked = false
     this.power = null
-    this.focus = 0
   }
 
   setRaised(raised) {
     this.raised = raised
-    if (!raised) this.focus = 0
   }
 
   unlock(power) {
@@ -30,13 +27,5 @@ export class Telescope {
     this.aimUnlocked = false
     this.power = null
     this.setRaised(false)
-  }
-
-  update(isFocused, delta, progress = 0) {
-    if (this.raised && isFocused) {
-      const duration = MIN_FOCUS_SECONDS + (MAX_FOCUS_SECONDS - MIN_FOCUS_SECONDS) * Math.min(1, Math.max(0, progress))
-      this.focus = Math.min(1, this.focus + delta / duration)
-    } else if (!this.raised) this.focus = 0
-    return this.focus
   }
 }
