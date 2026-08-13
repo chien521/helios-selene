@@ -3,16 +3,23 @@ import { PLAYER_Z_DEPTH } from '../core/Player.js'
 import { createBridge, createMeltBridge } from './LensGates.js'
 import { Lockbox } from './Lockbox.js'
 import { Mirror, Receiver } from './Mirror.js'
+import { Moon } from './Moon.js'
 import { SunField } from './SunBeam.js'
 import { Triangulation } from './Triangulation.js'
 import { PeriscopeExit } from './PeriscopeExit.js'
 
-const color = (value) => new THREE.Color(value)
 const DEPTH = 8
 const PLAYER_STAND_OFFSET = 1.1
-// Time a beam must stay on a rock before it topples. Kept short on purpose: once the routing is
-// correct the outcome is already decided, so a longer wait would just be the old loading bar in a
-// new costume. This is confirmation, not challenge.
+
+// Selene's phase families. A platform's colour IS its phase -- that is the whole legend, and it has
+// to be readable in one glance from across the crater, the same standard Mirror.js sets for "the
+// mirror sends light where it points". A platform with no `phase` is stone: solid in every phase,
+// and the only kind that can hold a checkpoint.
+const PHASE_TONE = {
+  full: { color: '#dff6ff', emissive: '#9fe8ff' },
+  new: { color: '#232c56', emissive: '#7a86c9' },
+  waning: { color: '#1f4f4a', emissive: '#79dcc8' },
+}
 
 // Derives a near-black shade of `hex` at a fixed target luma, working directly in sRGB
 // channel space (0-255) rather than three.js's internal linear color management — a plain
@@ -38,7 +45,7 @@ function paintSky(ctx, topHex, middleHex, bottomHex) {
   ctx.fillRect(0, 0, width, height)
 }
 
-const emptyObjects = () => ({ mirrors: [], receivers: [], periscopeBridges: [] })
+const emptyObjects = () => ({ mirrors: [], receivers: [] })
 
 export class ChapterLoader {
   constructor(scene) {
@@ -47,10 +54,14 @@ export class ChapterLoader {
     this.scene.add(this.group)
     this.objects = emptyObjects()
     this.platforms = []
-    this.bridgeCollider = null
-    this.springCollider = null
+    this.phasePlatforms = []
+    this.springs = []
     this.lowerPlatform = null
     this.sun = null
+    this.moon = null
+    this.phase = null
+    this.deathY = -15
+    this.gradeAxis = 'x'
     this.lensReceiverIds = new Set()
     this.skyCanvas = document.createElement('canvas')
     this.skyCanvas.width = 512
@@ -65,10 +76,12 @@ export class ChapterLoader {
     this.group.clear()
     this.objects = emptyObjects()
     this.platforms = []
-    this.bridgeCollider = null
-    this.springCollider = null
+    this.phasePlatforms = []
+    this.springs = []
     this.lowerPlatform = null
     this.sun = null
+    this.moon = null
+    this.phase = null
   }
 
   // Builds a ground platform + its physics collider in one place, since every platform in the
@@ -78,18 +91,43 @@ export class ChapterLoader {
   // `solves: true` marks a platform as only reachable once the chapter's puzzles are actually
   // solved, which main.js uses to flag chapter progress without needing to know which
   // chapter-specific mechanic (burn vs. stabilize) got them there.
-  addPlatform({ x, surfaceY, w, safeX, solves }) {
-    const boxY = surfaceY - 1
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 2, DEPTH), new THREE.MeshBasicMaterial({ color: this.shadow }))
+  //
+  // `h` defaults to the original 2 and only ever needs setting for thin slabs. `phase` makes the
+  // platform one of Selene's conditional surfaces -- see setPhase() and updatePhaseVisuals().
+  addPlatform({ id, x, surfaceY, w, h = 2, safeX, solves, phase, motion, enabled = true }) {
+    const boxY = surfaceY - h / 2
+    const tone = phase ? PHASE_TONE[phase] : null
+    const material = tone
+      ? new THREE.MeshStandardMaterial({ color: tone.color, emissive: tone.emissive, emissiveIntensity: 1.1, roughness: .3, transparent: true, opacity: 1 })
+      : new THREE.MeshBasicMaterial({ color: this.shadow })
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, DEPTH), material)
     mesh.position.set(x, boxY, PLAYER_Z_DEPTH)
     this.group.add(mesh)
-    const platform = { x, y: boxY, w, h: 2, surfaceY, safeX: safeX ?? x, solves: !!solves }
+    const platform = {
+      id: id ?? null,
+      x,
+      y: boxY,
+      w,
+      h,
+      surfaceY,
+      safeX: safeX ?? x,
+      solves: !!solves,
+      phase: phase ?? null,
+      motion: motion ? { ...motion, progress: 0, startedAt: null } : null,
+      mesh,
+      held: false,
+      enabled,
+    }
     this.platforms.push(platform)
+    if (phase) this.phasePlatforms.push(platform)
     return platform
   }
 
-  addSpring(platform, id) {
-    const springX = platform.x + platform.w / 2 - .8
+  // `x` defaults to the platform's right edge, which is where Helios wants both of its springs.
+  // Selene has to place its one spring by hand: a spring is only useful under an unobstructed
+  // column, and the crater has a ceiling nearly everywhere.
+  addSpring(platform, { id, x, revealed = false }) {
+    const springX = x ?? platform.x + platform.w / 2 - .8
     const spring = new THREE.Group()
     const material = new THREE.MeshStandardMaterial({ color: '#e8d8ae', emissive: '#ffb347', emissiveIntensity: 1.1, roughness: .45 })
     for (let index = 0; index < 4; index += 1) {
@@ -102,32 +140,25 @@ export class ChapterLoader {
     cap.position.y = 1
     spring.add(cap)
     spring.position.set(springX, platform.surfaceY, PLAYER_Z_DEPTH)
-    spring.visible = false
+    spring.visible = revealed
     this.group.add(spring)
     // The collision box reaches from the platform surface to the spring cap. It makes the spring
     // a real, standable object and prevents its launch from triggering through nearby floors.
     const collider = { x: springX, y: platform.surfaceY + .5, w: .84, h: 1 }
-    this.springCollider = collider
-    this.objects[id] = { mesh: spring, collider, revealed: false }
-  }
-
-  addCollectible(fragment, chapter, shadow) {
-    const part = new THREE.Mesh(
-      new THREE.TorusGeometry(.72, .13, 10, 20),
-      new THREE.MeshStandardMaterial({ color: shadow, emissive: chapter.id === 'helios' ? '#f5b45d' : '#c8f3ff', emissiveIntensity: 1.9, roughness: .2 }),
-    )
-    part.position.set(fragment.position[0], fragment.position[1], PLAYER_Z_DEPTH)
-    part.rotation.set(Math.PI / 2, .2, .35)
-    this.group.add(part)
-    this.objects.collectibles.push({ ...fragment, mesh: part, baseY: fragment.position[1] })
+    const entry = { id, mesh: spring, collider, revealed }
+    this.springs.push(entry)
+    this.objects[id] = entry
+    return entry
   }
 
   load(chapter) {
     this.clear()
-    const base = color(chapter.palette.open)
     const shadow = darkShade(chapter.palette.close)
     this.shadow = shadow
     this.chapter = chapter
+    const { layout } = chapter
+    this.deathY = layout.deathY ?? -15
+    this.gradeAxis = layout.gradeAxis ?? 'x'
     this.paletteColors = {
       open: new THREE.Color(chapter.palette.open),
       mid: new THREE.Color(chapter.palette.mid),
@@ -145,148 +176,228 @@ export class ChapterLoader {
     this.ambient = ambient
     this.sun3d = sun
 
-    // Ground hub, shared by both chapters -- everything past it is chapter-specific.
-    const hub = this.addPlatform({ x: 0, surfaceY: 0, w: 14 })
-    // The lower platform extends slightly beyond the hub so the spring's launch path clears the
-    // upper platform instead of colliding with its underside.
-    const lowerPlatform = this.addPlatform({ x: hub.x, surfaceY: -9, w: 18 })
-    this.lowerPlatform = lowerPlatform
-    this.addSpring(lowerPlatform, 'spring')
-    this.addSpring(hub, 'upperSpring')
+    // The starting ground, shared by both chapters -- everything past it is chapter-specific and
+    // comes out of `layout`. Helios's pit floor used to be hard-coded here too, which meant Selene
+    // inherited a platform at y=-9 and two springs it had no use for.
+    this.hub = this.addPlatform({ x: 0, surfaceY: 0, w: 14, h: layout.platformHeight })
+    this.buildFromLayout(chapter, shadow)
 
-    if (chapter.layout) this.buildFromLayout(chapter, shadow, base)
-    else this.buildSeleneRoom(shadow)
+    const spans = this.platforms.map((platform) => ({
+      minX: platform.x - platform.w / 2,
+      maxX: platform.x + platform.w / 2,
+      y: platform.surfaceY,
+    }))
+    this.gradeMinX = Math.min(...spans.map((span) => span.minX))
+    this.gradeMaxX = Math.max(...spans.map((span) => span.maxX))
+    this.gradeMinY = Math.min(...spans.map((span) => span.y))
+    this.gradeMaxY = Math.max(...spans.map((span) => span.y))
 
-    this.gradeMinX = Math.min(...this.platforms.map((platform) => platform.x - platform.w / 2))
-    this.gradeMaxX = Math.max(...this.platforms.map((platform) => platform.x + platform.w / 2))
-
-    this.objects.collectibles = []
-    chapter.fragments.forEach((fragment) => this.addCollectible(fragment, chapter, shadow))
-
-    this.updateGrade(this.gradeMinX, 0)
+    this.updateGrade(this.gradeAxis === 'y' ? this.gradeMaxY : this.gradeMinX, 0)
     return this.objects
   }
 
-  // Helios: a wide, twin-branched daytime room. The left branch teaches the mirror verb (heliostat
-  // + sky dots) and yields the lens; the right branch is a three-stage ascent where every gap is
-  // opened by routing sunlight onto a rock. Placement all lives in the chapter data.
-  buildFromLayout(chapter, shadow, base) {
+  // Everything is conditional on its layout key being present, so a chapter declares exactly the
+  // furniture it wants. Helios: a twin-branched daytime room with a pit, two dial boxes, a burnable
+  // wall and a doorway. Selene: a crater with phase surfaces, a moon, a moonwell chain and a dial.
+  buildFromLayout(chapter, shadow) {
     const { layout } = chapter
-    const platforms = {}
-    layout.platforms.forEach((spec) => { platforms[spec.id] = this.addPlatform(spec) })
+    const platforms = { hub: this.hub }
+    if (layout.pit) {
+      this.lowerPlatform = this.addPlatform({ id: 'pit', ...layout.pit })
+      platforms.pit = this.lowerPlatform
+    }
+    ;(layout.platforms ?? []).forEach((spec) => { platforms[spec.id] = this.addPlatform(spec) })
+    ;(layout.springs ?? []).forEach((spec) => this.addSpring(platforms[spec.on], spec))
 
-    this.sun = new SunField(this.group, { zones: layout.sunlitZones, color: '#ffd275' })
-    this.objects.mirrors = layout.mirrors.map((spec) => new Mirror(this.group, { ...spec, glow: '#ffd275' }))
-    this.objects.receivers = layout.receivers.map((spec) => new Receiver(this.group, { ...spec, glow: '#ffd275' }))
-    const lockboxPlatform = platforms[layout.lockboxOn]
-    this.objects.lockbox = new Lockbox(this.group, {
-      x: lockboxPlatform.x,
-      surfaceY: lockboxPlatform.surfaceY,
-      shadow,
-      glow: '#f5b45d',
-    })
-    this.objects.triangulation = new Triangulation(this.group, {
-      lensPosition: { x: this.lowerPlatform.x, y: this.lowerPlatform.surfaceY + .55 },
-      glow: '#ffd275',
-    })
-    this.objects.lensBox = new Lockbox(this.group, {
-      x: this.lowerPlatform.x,
-      surfaceY: this.lowerPlatform.surfaceY,
-      shadow,
-      glow: '#ffd275',
-      glyphs: ['fire', 'wind', 'dust', 'ice'],
-      solution: ['fire', 'wind', 'dust', 'ice'],
-      ringSpacing: 1.25,
-      interactionRange: 4.2,
-      showFrameReward: false,
-      hintLines: [
-        'The first could not be held.',
-        'The second could not stay.',
-        'The third could not remember.',
-        'The fourth could not forget.',
-      ],
-    })
-    this.objects.lensBox.hide()
-    this.lensReceiverIds = new Set(layout.lensReceivers)
-    this.objects.periscopeBridges = layout.bridges.map((spec) => {
-      const bridge = createBridge(this.group, { ...spec, depth: DEPTH, color: '#5b3b1d', emissive: '#ffd275' })
-      bridge.mesh.visible = false
-      return { ...spec, ...bridge, revealed: false }
-    })
+    const glow = layout.glow ?? '#ffd275'
+    this.sun = new SunField(this.group, { zones: layout.lightZones ?? [], color: glow })
+    this.objects.mirrors = (layout.mirrors ?? []).map((spec) => new Mirror(this.group, { ...spec, glow }))
+    this.objects.receivers = (layout.receivers ?? []).map((spec) => new Receiver(this.group, { ...spec, glow }))
+    this.lensReceiverIds = new Set(layout.lensReceivers ?? [])
+
+    if (layout.moon) {
+      this.moon = new Moon(this.group, { ...layout.moon, phases: layout.phases, phase: layout.startPhase })
+      this.moon.hide()
+      this.objects.moon = this.moon
+      this.phase = this.moon.phase
+      this.applyPhase()
+    }
+
+    if (layout.lockbox) {
+      const platform = platforms[layout.lockbox.on]
+      this.objects.lockbox = new Lockbox(this.group, {
+        ...layout.lockbox,
+        x: platform.x,
+        surfaceY: platform.surfaceY,
+        shadow,
+        glow: layout.lockbox.glow ?? '#f5b45d',
+      })
+    }
+    if (layout.lensBox) {
+      const platform = platforms[layout.lensBox.on]
+      this.objects.lensBox = new Lockbox(this.group, {
+        ...layout.lensBox,
+        x: platform.x,
+        surfaceY: platform.surfaceY,
+        shadow,
+        glow: layout.lensBox.glow ?? glow,
+      })
+      this.objects.lensBox.hide()
+    }
+    if (layout.lens) {
+      this.objects.triangulation = new Triangulation(this.group, {
+        lensPosition: { x: layout.lens.x, y: layout.lens.y },
+        glow: layout.lens.glow ?? glow,
+      })
+      if (layout.lens.revealed) this.objects.triangulation.revealLens()
+    }
+
     this.objects.meltBridge = layout.meltBridge
       ? createMeltBridge(this.group, { ...layout.meltBridge, depth: DEPTH, shadow, glow: '#ff8c1a' })
       : null
     if (layout.exitBridge) {
-      const bridge = createBridge(this.group, { ...layout.exitBridge, depth: DEPTH, color: '#5b3b1d', emissive: '#ffd275' })
+      const bridge = createBridge(this.group, { ...layout.exitBridge, depth: DEPTH, color: '#5b3b1d', emissive: glow })
       bridge.mesh.visible = false
       const marker = new THREE.Group()
       marker.position.set(layout.exitBridge.markerX, layout.exitBridge.markerY, PLAYER_Z_DEPTH)
-      marker.add(new THREE.Mesh(new THREE.SphereGeometry(.18, 12, 12), new THREE.MeshBasicMaterial({ color: '#ffd275' })))
+      marker.add(new THREE.Mesh(new THREE.SphereGeometry(.18, 12, 12), new THREE.MeshBasicMaterial({ color: glow })))
       marker.visible = false
       this.group.add(marker)
       this.objects.exitBridge = { ...bridge, group: marker, position: marker.position, revealed: false }
     }
     this.objects.exit = layout.exit
-      ? new PeriscopeExit(this.group, { ...layout.exit, glow: '#ffd275' })
+      ? new PeriscopeExit(this.group, { ...layout.exit, glow })
       : null
-  }
-
-  // A single continuous vertical ascent, not a branching room -- deliberately NOT rhyming Helios's
-  // shape so the chapter reads as its own place: a night-time climb toward the moon rather than a
-  // daytime room split into two wings. Same gap=2.5/rise=1.5 margin as Helios's stairs, chained
-  // four times to reach roughly double Helios's summit height.
-  buildSeleneRoom(shadow) {
-    const landing = this.addPlatform({ x: 17, surfaceY: 0, w: 4 })
-    const { mesh: bridge, collider: bridgeCollider } = createBridge(this.group, { left: 7, right: landing.x - landing.w / 2, surfaceY: 0, depth: DEPTH })
-    this.objects.bridge = bridge
-    this.bridgeCollider = bridgeCollider
-
-    this.addPlatform({ x: 24.5, surfaceY: 1.5, w: 6 })
-    // The "resting ledge" -- wider than the other steps, this is Selene's vantage-point beat
-    // (staged mid-climb rather than a separate branch) and holds a decorative frost-mote cluster.
-    const restPlatform = this.addPlatform({ x: 34, surfaceY: 3, w: 8, safeX: 31.5 })
-    this.addPlatform({ x: 43.5, surfaceY: 4.5, w: 6 })
-    // `solves` belongs on the summit, not on the landing just past the bridge. It used to sit on the
-    // landing, which meant Selene's completion flag fired the moment the player stepped off the
-    // bridge -- and the ending screen could never actually be reached.
-    const summitPlatform = this.addPlatform({ x: 54, surfaceY: 6, w: 10, solves: true })
-
-    // Frost motes: a small drifting cluster instead of Helios's single solid vista gem.
-    const motes = new THREE.Group()
-    for (const [dx, dy] of [[-2.6, 1.4], [-1.5, 2.1], [-1.9, 1.7]]) {
-      const mote = new THREE.Mesh(new THREE.IcosahedronGeometry(.35, 0), new THREE.MeshStandardMaterial({ color: shadow, emissive: '#c8f3ff', emissiveIntensity: 1.5, roughness: .3 }))
-      mote.position.set(dx, dy, 0)
-      motes.add(mote)
+    if (layout.ladderWall) {
+      const { x, y, height, steps } = layout.ladderWall
+      const wall = new THREE.Group()
+      wall.position.set(x, y, PLAYER_Z_DEPTH)
+      const material = new THREE.MeshStandardMaterial({ color: shadow, emissive: glow, emissiveIntensity: .7, roughness: .45 })
+      wall.add(new THREE.Mesh(new THREE.BoxGeometry(.8, height, DEPTH), material))
+      this.group.add(wall)
+      const rungs = steps.map((step, index) => {
+        const rung = this.addPlatform({ id: `ladder-rung-${index}`, ...step, enabled: false })
+        rung.mesh.visible = false
+        return rung
+      })
+      this.objects.ladderWall = {
+        group: wall,
+        position: wall.position,
+        active: true,
+        activate: () => {
+          wall.visible = false
+          rungs.forEach((rung) => { rung.enabled = true; rung.mesh.visible = true })
+        },
+      }
     }
-    motes.position.set(restPlatform.x, restPlatform.surfaceY, PLAYER_Z_DEPTH)
-    this.group.add(motes)
-    this.objects.vista = motes
-
-    // Crystalline, faceted shard -- floating-feeling rather than Helios's solid grounded cone.
-    const summit = new THREE.Mesh(new THREE.OctahedronGeometry(3.2, 0), new THREE.MeshStandardMaterial({ color: '#1b2a4a', emissive: '#8fe3ff', emissiveIntensity: 1.4, roughness: .25 }))
-    summit.position.set(summitPlatform.x, summitPlatform.surfaceY + 3.2, PLAYER_Z_DEPTH)
-    this.group.add(summit)
-    this.objects.summit = summit
+    if (layout.exitTrigger) {
+      const { x, surfaceY } = layout.exitTrigger
+      const marker = new THREE.Group()
+      const keyMaterial = new THREE.MeshStandardMaterial({ color: '#f6c453', emissive: '#ff9f1c', emissiveIntensity: 2.2, roughness: .25 })
+      const bow = new THREE.Mesh(new THREE.TorusGeometry(.22, .07, 8, 16), keyMaterial)
+      const shaft = new THREE.Mesh(new THREE.BoxGeometry(.12, .52, .08), keyMaterial)
+      const tooth = new THREE.Mesh(new THREE.BoxGeometry(.24, .12, .08), keyMaterial)
+      bow.position.y = .28
+      tooth.position.set(.06, -.22, .02)
+      marker.add(bow, shaft, tooth)
+      marker.position.set(x, surfaceY + .58, PLAYER_Z_DEPTH + .2)
+      marker.visible = false
+      this.group.add(marker)
+      this.objects.exitTrigger = { group: marker, marker, position: marker.position, active: false, used: false }
+    }
   }
 
-  // Traces sunlight and applies everything it touches. `visible` gates the whole optical layer on
-  // owning the telescope frame; `canBurn` gates *burning* on the Helios lens, which is what keeps
-  // the back half of the chapter mechanically unsolvable until the lens is collected.
+  // --- Selene's phase layer -------------------------------------------------------------------
+
+  // `groundedPlatform` is the platform the player is standing on right now. If the phase turns away
+  // from it, it is *held*: it stays solid until they step off. A surface therefore never vanishes
+  // out from under the player, which is what keeps Selene as failure-free as Helios -- turning the
+  // dial can cost you a route, never a fall.
+  setPhase(phase, groundedPlatform = null) {
+    if (this.phase === phase) return false
+    this.phase = phase
+    this.applyPhase(groundedPlatform)
+    return true
+  }
+
+  applyPhase(groundedPlatform = null) {
+    this.phasePlatforms.forEach((platform) => {
+      platform.held = platform.phase !== this.phase && platform === groundedPlatform
+      if (!platform.motion) return
+      platform.motion.progress = 0
+      platform.motion.startedAt = null
+      platform.x = platform.motion.fromX
+      platform.mesh.position.x = platform.x
+    })
+  }
+
+  releaseHeld(groundedPlatform) {
+    this.phasePlatforms.forEach((platform) => {
+      if (platform.held && platform !== groundedPlatform) platform.held = false
+    })
+  }
+
+  isSolid(platform) {
+    if (!platform.enabled) return false
+    if (platform.motion && platform.phase === this.phase && platform.motion.progress < 1) return false
+    return !platform.phase || platform.phase === this.phase || platform.held
+  }
+
+  // Out of phase, a surface is a ghost while the scope is raised and nothing at all while it is
+  // down. Raising the scope is therefore how the player *reads* the crater -- the answer is always
+  // on screen before they have to commit to a drop. A held surface pulses, which is the wordless
+  // "this is going the moment you step off".
+  updatePhaseVisuals(scopeRaised, elapsed) {
+    this.phasePlatforms.forEach((platform) => {
+      const material = platform.mesh.material
+      if (platform.motion && platform.phase === this.phase) {
+        if (platform.motion.startedAt === null) platform.motion.startedAt = elapsed
+        platform.motion.progress = Math.min(1, (elapsed - platform.motion.startedAt) / platform.motion.duration)
+        platform.x = THREE.MathUtils.lerp(platform.motion.fromX, platform.motion.toX, platform.motion.progress)
+        platform.mesh.position.x = platform.x
+      }
+      if (platform.phase === this.phase) {
+        platform.mesh.visible = true
+        material.opacity = platform.motion && platform.motion.progress < 1 ? .62 : 1
+        material.emissiveIntensity = platform.motion && platform.motion.progress < 1 ? 1.9 : 1.1
+      } else if (platform.held) {
+        platform.mesh.visible = true
+        material.opacity = .55 + Math.sin(elapsed * 8) * .18
+        material.emissiveIntensity = 1.9
+      } else {
+        // .17 was invisible in play -- a pale ghost at that opacity vanishes into the crater's
+        // mid-blue sky, and the whole promise of the verb is that you can SEE what a phase would
+        // give you before you commit to the drop. Legibility wins over subtlety here.
+        platform.mesh.visible = scopeRaised
+        material.opacity = .36
+        material.emissiveIntensity = 1
+      }
+    })
+  }
+
+  // --- Light -----------------------------------------------------------------------------------
+
+  // Traces light and applies everything it touches. `visible` gates the whole optical layer on
+  // owning the telescope frame; in Helios `focusedMirror` is what commits a receiver, because there
+  // the scope is the confirmation step. Selene's receivers are `hold` receivers instead: they are
+  // simply true for as long as the beam is on them, so the pool chain has to be a standing
+  // arrangement rather than a checklist.
   updateBeams({ visible, showDirections, focusedMirror }) {
     const result = { receiverHits: new Set() }
     if (!this.sun) return result
-    const { segments, massHits, receiverHits } = this.sun.trace({
+    const { segments, receiverHits } = this.sun.trace({
       mirrors: this.objects.mirrors,
       receivers: this.objects.receivers,
       masses: [],
-      blockers: this.platforms,
+      blockers: this.platforms.filter((platform) => this.isSolid(platform)),
     })
     this.sun.render(showDirections ? segments : [])
     this.objects.mirrors.forEach((mirror) => mirror.setLit(visible && mirror.lit))
 
-    if (visible && focusedMirror) {
-      this.objects.receivers.forEach((receiver) => { if (receiverHits.has(receiver)) receiver.latch() })
-    }
+    this.objects.receivers.forEach((receiver) => {
+      if (receiver.hold) receiver.setHeld(visible && receiverHits.has(receiver))
+      else if (visible && focusedMirror && receiverHits.has(receiver)) receiver.latch()
+    })
     result.receiverHits = receiverHits
     return result
   }
@@ -309,21 +420,17 @@ export class ChapterLoader {
   }
 
   getColliders() {
-    const colliders = [...this.platforms]
-    this.objects.periscopeBridges.forEach((bridge) => {
-      if (bridge.revealed) colliders.push(bridge.collider)
-    })
+    const colliders = this.platforms.filter((platform) => this.isSolid(platform))
     if (this.objects.meltBridge) {
       colliders.push(this.objects.meltBridge.melted
         ? this.objects.meltBridge.bridgeCollider
         : this.objects.meltBridge.wallCollider)
     }
     if (this.objects.exitBridge?.revealed) colliders.push(this.objects.exitBridge.collider)
-    if (this.objects.bridge?.visible) colliders.push(this.bridgeCollider)
     if (this.objects.lockbox?.collider) colliders.push(this.objects.lockbox.collider)
     if (this.objects.lensBox?.collider) colliders.push(this.objects.lensBox.collider)
-    for (const spring of [this.objects.spring, this.objects.upperSpring]) {
-      if (spring?.revealed) colliders.push(spring.collider)
+    for (const spring of this.springs) {
+      if (spring.revealed) colliders.push(spring.collider)
     }
     return colliders
   }
@@ -331,10 +438,16 @@ export class ChapterLoader {
   // Finds safe checkpoint ground under a grounded player. Ledges overlap the platforms they fell
   // onto, so matching on x alone would return the platform *below* the ledge the player is actually
   // standing on and respawn them a step too low -- `feetY` disambiguates.
+  //
+  // Phase surfaces are deliberately excluded: a checkpoint on one would respawn the player into
+  // empty air the moment the phase turned. Same reasoning that keeps Helios's bridges and decks out
+  // of the platform list.
   platformAt(playerX, feetY) {
     let best = null
     let bestGap = Infinity
     for (const platform of this.platforms) {
+      if (!platform.enabled) continue
+      if (platform.phase) continue
       if (playerX < platform.x - platform.w / 2 || playerX > platform.x + platform.w / 2) continue
       const gap = Math.abs(platform.surfaceY - feetY)
       if (gap < bestGap) { bestGap = gap; best = platform }
@@ -342,25 +455,32 @@ export class ChapterLoader {
     return best
   }
 
+  // The platform the player is physically standing on, phase surfaces included. Distinct from
+  // platformAt(), which answers "where is it safe to respawn" -- this one answers "what is under
+  // their feet", which is what the phase hold rule needs.
+  standingOn(playerX, feetY) {
+    let best = null
+    let bestGap = Infinity
+    for (const platform of this.platforms) {
+      if (!this.isSolid(platform)) continue
+      if (playerX < platform.x - platform.w / 2 || playerX > platform.x + platform.w / 2) continue
+      const gap = Math.abs(platform.surfaceY - feetY)
+      if (gap < bestGap) { bestGap = gap; best = platform }
+    }
+    return bestGap < .05 ? best : null
+  }
+
   springUnder(body) {
-    return [this.objects.spring, this.objects.upperSpring].find((spring) => {
-      if (!spring?.revealed) return false
+    return this.springs.find((spring) => {
+      if (!spring.revealed) return false
       const springTop = spring.collider.y + spring.collider.h / 2
       return Math.abs(body.x - spring.collider.x) <= body.hw + spring.collider.w / 2
         && Math.abs(body.y - body.hh - springTop) < .001
     }) ?? null
   }
 
-  revealSpring() {
-    const spring = this.objects.spring
-    if (!spring || spring.revealed) return false
-    spring.revealed = true
-    spring.mesh.visible = true
-    return true
-  }
-
-  revealUpperSpring() {
-    const spring = this.objects.upperSpring
+  revealSpring(id) {
+    const spring = this.objects[id]
     if (!spring || spring.revealed) return false
     spring.revealed = true
     spring.mesh.visible = true
@@ -387,35 +507,23 @@ export class ChapterLoader {
     return [...ids].every((id) => this.objects.receivers.some((receiver) => receiver.id === id && receiver.latched))
   }
 
-  updatePeriscopeRoutes() {
-    const revealedBridges = []
-    this.objects.periscopeBridges.forEach((bridge) => {
-      if (!bridge.revealed && this.receiversLatched([bridge.receiver])) {
-        bridge.revealed = true
-        bridge.mesh.visible = true
-        revealedBridges.push(bridge)
-      }
-    })
-    const exitRevealed = !!this.objects.exit
-      && !this.objects.exit.group.visible
-      && this.receiversLatched([this.chapter.layout.exit.receiver])
-      && this.objects.exit.reveal()
-    return { revealedBridges, exitRevealed }
-  }
-
   standingHeight(platform) {
     return platform.surfaceY + PLAYER_STAND_OFFSET
   }
 
-  // How far across the chapter the player has travelled, 0-1. Drives the sky grade.
-  gradeProgress(playerX) {
-    return Math.min(1, Math.max(0, (playerX - this.gradeMinX) / (this.gradeMaxX - this.gradeMinX)))
+  // How far through the chapter the player has travelled, 0-1. Drives the sky grade. Helios reads
+  // it across x -- a journey from its orange left edge to its white summit. Selene reads it down y,
+  // because its journey is a descent: pale at the crater's lip, deep navy at the water.
+  gradeProgress(position) {
+    if (this.gradeAxis === 'y') {
+      const span = this.gradeMaxY - this.gradeMinY
+      return span > 0 ? Math.min(1, Math.max(0, (this.gradeMaxY - position) / span)) : 0
+    }
+    return Math.min(1, Math.max(0, (position - this.gradeMinX) / (this.gradeMaxX - this.gradeMinX)))
   }
 
-  // The sky follows the player's horizontal journey through the chapter, making Helios glow
-  // orange on its far-left climb and fade to white toward its right-side summit.
-  updateGrade(playerX, delta) {
-    const progress = this.gradeProgress(playerX)
+  updateGrade(position, delta) {
+    const progress = this.gradeProgress(position)
     const target = progress < .5
       ? this.paletteColors.open.clone().lerp(this.paletteColors.mid, progress * 2)
       : this.paletteColors.mid.clone().lerp(this.paletteColors.close, (progress - .5) * 2)
@@ -428,23 +536,15 @@ export class ChapterLoader {
     this.scene.fog.color.set(shadowHex)
   }
 
+  gradeInput(playerPosition) {
+    return this.gradeAxis === 'y' ? playerPosition.y : playerPosition.x
+  }
+
   updateGlow(elapsed, playerPosition) {
-    // Selene's frost-mote vista is a small Group rather than a single mesh, so pulse every child.
-    const pulse = (object, base, amplitude, speed) => {
-      const value = base + Math.sin(elapsed * speed) * amplitude
-      if (object.material) object.material.emissiveIntensity = value
-      else object.children.forEach((child) => { child.material.emissiveIntensity = value })
-    }
-    if (this.objects.summit) pulse(this.objects.summit, 1.4, .4, 1.6)
     this.objects.receivers.forEach((receiver) => receiver.update(elapsed))
+    this.moon?.update(elapsed)
     this.objects.lockbox?.update(elapsed, playerPosition)
     this.objects.lensBox?.update(elapsed, playerPosition)
     this.objects.triangulation?.update(elapsed, playerPosition)
-    this.objects.collectibles?.forEach(({ mesh }, index) => {
-      if (!mesh.visible) return
-      mesh.rotation.y += .018
-      mesh.position.y = this.objects.collectibles[index].baseY + Math.sin(elapsed * 2 + index) * .16
-      mesh.material.emissiveIntensity = 1.7 + Math.sin(elapsed * 2.6 + index) * .35
-    })
   }
 }

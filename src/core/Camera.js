@@ -6,6 +6,7 @@ export class FollowCamera {
   constructor() {
     this.camera = new THREE.PerspectiveCamera(39, innerWidth / innerHeight, .1, 100)
     this.reveal = null
+    this.focus = null
   }
 
   resize() {
@@ -30,6 +31,14 @@ export class FollowCamera {
 
   cancelReveal() {
     this.reveal = null
+  }
+
+  focusObject(position) {
+    this.focus = position.clone()
+  }
+
+  clearFocus() {
+    this.focus = null
   }
 
   update(delta, player) {
@@ -58,9 +67,12 @@ export class FollowCamera {
         revealFinished = true
       }
     } else {
-      this.camera.position.x += (playerTarget.x - this.camera.position.x) * factor
-      this.camera.position.y += (playerTarget.y - this.camera.position.y) * factor
-      this.camera.position.z += (playerTarget.z - this.camera.position.z) * factor
+      const target = this.focus
+        ? { x: this.focus.x + OFFSET.x, y: this.focus.y + .5, z: this.focus.z + OFFSET.z }
+        : playerTarget
+      this.camera.position.x += (target.x - this.camera.position.x) * factor
+      this.camera.position.y += (target.y - this.camera.position.y) * factor
+      this.camera.position.z += (target.z - this.camera.position.z) * factor
     }
     this.lookForward()
     return revealFinished

@@ -13,7 +13,10 @@ const PICKUP_RANGE = 1.6
 
 const material = (color, intensity = 1) => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: intensity, roughness: .35 })
 
-function glyph(type, color) {
+// `shade` is the colour a carved-out region is painted in -- crescents are made by laying a
+// near-dark disc over a bright one, so it has to match the box it sits in or the cutout reads as a
+// second lit shape. Helios's boxes keep the original brown; Selene passes a navy.
+function glyph(type, color, shade = '#352009') {
   const group = new THREE.Group()
   if (type === 'sun') {
     group.add(new THREE.Mesh(new THREE.CircleGeometry(.16, 16), material(color, 1.8)))
@@ -26,9 +29,69 @@ function glyph(type, color) {
     }
   } else if (type === 'moon') {
     group.add(new THREE.Mesh(new THREE.CircleGeometry(.3, 20), material(color, 1.8)))
-    const cutout = new THREE.Mesh(new THREE.CircleGeometry(.27, 20), material('#352009', .1))
+    const cutout = new THREE.Mesh(new THREE.CircleGeometry(.27, 20), material(shade, .1))
     cutout.position.set(.13, .05, .03)
     group.add(cutout)
+  } else if (type === 'full') {
+    // Selene's three phases share one construction -- a lit disc with a shade disc slid across it --
+    // so the dials read as one moon turning rather than three unrelated symbols. Same trick the
+    // sky's Moon uses; see Moon.applyPhase().
+    group.add(new THREE.Mesh(new THREE.CircleGeometry(.3, 20), material(color, 1.8)))
+  } else if (type === 'waning') {
+    group.add(new THREE.Mesh(new THREE.CircleGeometry(.3, 20), material(color, 1.8)))
+    const cutout = new THREE.Mesh(new THREE.CircleGeometry(.28, 20), material(shade, .1))
+    cutout.position.set(.16, 0, .03)
+    group.add(cutout)
+  } else if (type === 'new') {
+    group.add(new THREE.Mesh(new THREE.CircleGeometry(.3, 20), material(color, 1.8)))
+    const cutout = new THREE.Mesh(new THREE.CircleGeometry(.255, 20), material(shade, .1))
+    cutout.position.set(0, 0, .03)
+    group.add(cutout)
+  } else if (type === 'owl') {
+    group.add(new THREE.Mesh(new THREE.CircleGeometry(.3, 20), material(color, 1.8)))
+    for (const x of [-.16, .16]) {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(.13, .28, 3), material(color, 1.8))
+      ear.position.set(x, .3, .03)
+      group.add(ear)
+      const eye = new THREE.Mesh(new THREE.CircleGeometry(.07, 12), material(shade, .1))
+      eye.position.set(x, .02, .04)
+      group.add(eye)
+    }
+  } else if (type === 'fox') {
+    const face = new THREE.Shape()
+    face.moveTo(0, -.38)
+    face.lineTo(-.32, .22)
+    face.lineTo(-.26, .48)
+    face.lineTo(0, .3)
+    face.lineTo(.26, .48)
+    face.lineTo(.32, .22)
+    face.lineTo(0, -.38)
+    group.add(new THREE.Mesh(new THREE.ShapeGeometry(face), material(color, 1.8)))
+    const snout = new THREE.Mesh(new THREE.CircleGeometry(.1, 12), material(shade, .1))
+    snout.position.set(0, -.15, .03)
+    group.add(snout)
+  } else if (type === 'elephant') {
+    group.add(new THREE.Mesh(new THREE.CircleGeometry(.27, 20), material(color, 1.8)))
+    for (const x of [-.28, .28]) {
+      const ear = new THREE.Mesh(new THREE.CircleGeometry(.2, 16), material(color, 1.5))
+      ear.position.set(x, .04, -.01)
+      group.add(ear)
+    }
+    const trunk = new THREE.Mesh(new THREE.BoxGeometry(.13, .42, .03), material(color, 1.8))
+    trunk.position.set(0, -.32, .03)
+    group.add(trunk)
+  } else if (type === 'human') {
+    const head = new THREE.Mesh(new THREE.CircleGeometry(.15, 16), material(color, 1.8))
+    head.position.y = .28
+    group.add(head)
+    const body = new THREE.Mesh(new THREE.BoxGeometry(.22, .38, .03), material(color, 1.8))
+    body.position.y = -.08
+    group.add(body)
+    for (const x of [-.15, .15]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(.07, .24, .03), material(color, 1.8))
+      leg.position.set(x, -.36, .03)
+      group.add(leg)
+    }
   } else if (type === 'star') {
     const shape = new THREE.Shape()
     for (let index = 0; index < 10; index += 1) {
@@ -105,9 +168,11 @@ function glyph(type, color) {
 }
 
 export class Lockbox {
-  constructor(group, { x, surfaceY, shadow, glow, glyphs = DEFAULT_GLYPHS, solution = DEFAULT_SOLUTION, hintLines = DEFAULT_HINT, ringSpacing = .72, interactionRange = INTERACTION_RANGE, showFrameReward = true }) {
+  constructor(group, { x, surfaceY, shadow, glow, glyphs = DEFAULT_GLYPHS, solution = DEFAULT_SOLUTION, hintLines = DEFAULT_HINT, ringSpacing = .72, interactionRange = INTERACTION_RANGE, showFrameReward = true, glyphColor = '#f5b45d', glyphShade = '#352009' }) {
     this.x = x
     this.surfaceY = surfaceY
+    this.glyphColor = glyphColor
+    this.glyphShade = glyphShade
     this.group = new THREE.Group()
     this.group.position.set(x, surfaceY, PLAYER_Z_DEPTH)
     group.add(this.group)
@@ -148,7 +213,7 @@ export class Lockbox {
   setGlyph(index) {
     const ring = this.rings[index]
     if (ring.glyph) ring.remove(ring.glyph)
-    ring.glyph = glyph(this.glyphs[this.dials[index]], '#f5b45d')
+    ring.glyph = glyph(this.glyphs[this.dials[index]], this.glyphColor, this.glyphShade)
     ring.glyph.position.z = .08
     ring.add(ring.glyph)
   }

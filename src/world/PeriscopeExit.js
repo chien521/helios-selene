@@ -1,9 +1,15 @@
 import * as THREE from 'three'
 import { PLAYER_Z_DEPTH } from '../core/Player.js'
 
+// The doorway. Helios pulls it in horizontally while the scope is raised -- walking toward it with
+// the glass up is what closes the distance. Selene reuses the same easing on the other axis:
+// `riseTo` makes the door climb out of the water while the player holds focus on it, and sink back
+// the moment they look away. Same object, same one-line ease, opposite axis and opposite condition.
 export class PeriscopeExit {
-  constructor(group, { x, nearX = x, surfaceY, glow, visible = false }) {
-    this.position = new THREE.Vector3(x, surfaceY + 2.2, PLAYER_Z_DEPTH)
+  constructor(group, { x, nearX = x, surfaceY, riseTo, glow, visible = false }) {
+    this.homeY = surfaceY + 2.2
+    this.nearY = riseTo ?? this.homeY
+    this.position = new THREE.Vector3(x, this.homeY, PLAYER_Z_DEPTH)
     this.homeX = x
     this.nearX = nearX
     this.pulledCloser = false
@@ -32,8 +38,9 @@ export class PeriscopeExit {
     return true
   }
 
-  setPulledCloser(pulledCloser) {
+  setPulledCloser(pulledCloser, nearX = this.nearX) {
     this.pulledCloser = pulledCloser
+    this.nearX = nearX
   }
 
   reached(playerPosition) {
@@ -44,8 +51,10 @@ export class PeriscopeExit {
     if (!this.group.visible) return
     if (delta > 0) {
       const targetX = this.pulledCloser ? this.nearX : this.homeX
+      const targetY = this.pulledCloser ? this.nearY : this.homeY
       const factor = 1 - Math.exp(-delta * 5)
       this.position.x += (targetX - this.position.x) * factor
+      this.position.y += (targetY - this.position.y) * factor
       this.group.position.copy(this.position)
     }
     const opening = this.group.children[3]

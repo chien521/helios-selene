@@ -124,7 +124,3 @@ export function applyHeat(mass, amount) {
   mass.material.emissiveIntensity = .9 + state.heat * 1.8
 }
 
-export function updateBridge(bridge, stabilized) {
-  bridge.material.opacity = stabilized ? .92 : .1
-  bridge.visible = stabilized
-}

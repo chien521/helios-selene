@@ -89,17 +89,38 @@ export class Mirror {
 
 // A sky dot: latches permanently the first time a beam touches it. Used for the heliostat beat,
 // which is now the tutorial for the chapter's core verb rather than a one-off.
+//
+// `hold: true` is Selene's variant and the exact inversion of that: it never latches, it is simply
+// lit for as long as a beam is actually touching it. Helios accumulates permanence one target at a
+// time; Selene's moon dial has to be *kept* true, which is what makes the pool chain a standing
+// arrangement rather than a checklist. A held receiver is also a legal focus target (it exposes
+// `.group`, same duck-typed contract as a mirror), and focusing it is what turns the moon's phase
+// from under the moonline.
 export class Receiver {
-  constructor(group, { id, x, y, glow = '#ffd275' }) {
+  constructor(group, { id, x, y, glow = '#ffd275', hold = false, size = .24 }) {
     this.id = id
     this.position = new THREE.Vector3(x, y, PLAYER_Z_DEPTH)
+    this.hold = hold
     this.latched = false
+    this.held = false
+    this.glow = glow
+    this.group = new THREE.Group()
+    this.group.position.copy(this.position)
+    group.add(this.group)
     this.mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(.24, 12, 12),
+      new THREE.SphereGeometry(size, 16, 16),
       new THREE.MeshStandardMaterial({ color: glow, emissive: glow, emissiveIntensity: 1.1, roughness: .25 }),
     )
-    this.mesh.position.copy(this.position)
-    group.add(this.mesh)
+    this.group.add(this.mesh)
+    // The held variant gets a ring so it reads as a dial to aim light INTO, rather than as one more
+    // sky dot to tick off. Selene has exactly one of these and the whole pool chamber points at it.
+    if (hold) {
+      this.ring = new THREE.Mesh(
+        new THREE.TorusGeometry(size * 2.6, size * .34, 10, 24),
+        new THREE.MeshStandardMaterial({ color: glow, emissive: glow, emissiveIntensity: .35, roughness: .3 }),
+      )
+      this.group.add(this.ring)
+    }
   }
 
   latch() {
@@ -112,8 +133,21 @@ export class Receiver {
     return true
   }
 
+  setHeld(held) {
+    if (this.held === held) return false
+    this.held = held
+    this.mesh.scale.setScalar(held ? 1.3 : 1)
+    if (this.ring) {
+      this.ring.material.emissiveIntensity = held ? 1.8 : .35
+      this.ring.scale.setScalar(held ? 1.12 : 1)
+    }
+    return true
+  }
+
   update(elapsed) {
     if (this.latched) return
-    this.mesh.material.emissiveIntensity = 1.1 + Math.sin(elapsed * 2.4) * .35
+    const base = this.hold && !this.held ? .5 : 1.1
+    this.mesh.material.emissiveIntensity = base + Math.sin(elapsed * 2.4) * .35
+    if (this.ring) this.ring.rotation.z += this.held ? .012 : .003
   }
 }

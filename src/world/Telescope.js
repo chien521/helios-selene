@@ -23,6 +23,17 @@ export class Telescope {
     this.aimUnlocked = true
   }
 
+  // Selene opens with the telescope already in hand -- the traveler carried the frame out of
+  // Helios -- but with no lens in it. Raising the scope therefore shows the crater's out-of-phase
+  // surfaces as ghosts while focusing the moon does nothing, which is the wordless "you are missing
+  // a lens". It mirrors Helios, where the frame switches the optical layer on and the lens is what
+  // makes it act on anything.
+  carryFrame() {
+    this.aimUnlocked = true
+    this.power = null
+    this.setRaised(false)
+  }
+
   resetPower() {
     this.aimUnlocked = false
     this.power = null

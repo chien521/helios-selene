@@ -10,6 +10,13 @@ export class Checkpoint {
     this.solved = false
   }
 
+  // Each chapter names its own spawn, so the crater can open somewhere other than Helios's hub.
+  setSpawn(spawnX, spawnY) {
+    this.spawnX = spawnX
+    this.spawnY = spawnY
+    this.reset()
+  }
+
   // Call once per frame while the player is grounded on `platform`. Unconditional (no forward-only
   // ordering): the room is open and non-linear, so "further along" isn't well-defined spatially --
   // the checkpoint is simply the last solid ground the player stood on, which is always
