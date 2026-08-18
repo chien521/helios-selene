@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
       "build:viverse": "vite build --base=./",
+    "build:github-pages": "vite build --base=/helios-selene/",
     "preview": "vite preview"
   },
   "dependencies": {
