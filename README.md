@@ -1,6 +1,8 @@
 # Helios & Selene
 
-A quiet 3D puzzle adventure about two skies that cannot share a horizon. Guide a traveler through **Helios**, the sun's domain, and **Selene**, the moon's domain, to complete an instrument that can hold both lights in one view.
+A quiet 3D puzzle adventure about two skies that cannot share a horizon. Guide a nameless traveler through **Helios**, the sun's domain, and **Selene**, the moon's domain, gathering the two halves of an unfinished telescope so its two lovers can, for one moment, be seen together through the same glass.
+
+No dialogue, no on-screen explanation — the story is told wordlessly through play, and in full only once, at the very end.
 
 Built with Three.js, Vite, and vanilla ES modules.
 
@@ -33,7 +35,7 @@ npm run preview
 
 | Action | Control |
 | --- | --- |
-| Move | W, A, S, D |
+| Move | W, A, S, D (or arrow keys) |
 | Jump | W or Up Arrow |
 | Interact / turn a mirror | E |
 | Select a lockbox dial | Q |
@@ -42,25 +44,37 @@ npm run preview
 | Moon view | Space |
 | Pause | Escape |
 
+The same instrument is called the **magnifier** in Helios and the **telescope** in Selene — same key, same mechanic, different name for where you are.
+
 ## Chapters
 
-**Helios** uses a magnifier to route sunlight through rotatable mirrors. Focus on a correctly aligned mirror to latch its receiver and open the route forward.
+**01 · Helios — "The day that would not soften."** Solve lockbox dials to reveal a network of rotatable mirrors, then raise the magnifier and focus on a correctly aligned mirror to latch its receiver and route sunlight forward.
 
-**Selene** uses a telescope to change the moon phase. Each phase makes different crater ledges solid; raise the telescope to reveal the hidden route.
+**02 · Selene — "Locked until Helios is complete."** Raise the telescope on the moon to cycle its phase (new → full → waning). Each phase makes different crater ledges solid, so the way down is chosen before you jump, not after.
+
+Selene unlocks automatically once Helios is finished — progress is saved locally in the browser.
+
+## Menus & extras
+
+- **Chapter select, pause menu, and a restart-game dialog**, all reachable mid-run.
+- **A guided "Gameplay walkthrough"** from the start screen — a short, skippable step-by-step tutorial covering movement, jumping, lockbox dials, and the magnifier, before the real chapters begin.
+- **14 languages** (English, Traditional & Simplified Chinese, Japanese, Russian, Spanish, Portuguese, French, German, Italian, Korean, Hindi, Arabic, Thai), selected once up front and changeable again from the pause menu.
+- **Optional VIVERSE integration**: connect a VIVERSE avatar/login, and submit a completed run's time to a global speedrun leaderboard visible from "See records" on the start screen. Entirely optional — the game is fully playable as a guest with no account.
 
 ## Project structure
 
 ```text
 src/
-  main.js             Game state, UI, input, and chapter transitions
-  chapters/           Declarative layouts for Helios and Selene
-  core/               Player movement, physics, camera, checkpoints
-  world/              Puzzles, interactables, lighting, and world loading
-  viverse/            Local VIVERSE session stub
+  main.js       Game state, UI, input, i18n wiring, and chapter transitions
+  i18n.js       All UI strings, in 14 languages
+  chapters/     Declarative layouts for the Helios/Selene rooms and the tutorial
+  core/         Player movement, physics, camera, checkpoints
+  world/        Puzzles, interactables, lighting, and world loading
+  viverse/      VIVERSE login, avatar, and leaderboard session
 ```
 
 ## Notes
 
-- Progress is stored locally in the browser so Selene unlocks after Helios is complete.
-- The project has no backend, test runner, or CI configuration.
-- VIVERSE controls are present as local-build placeholders.
+- Progress (chapter completion, language) is stored locally in the browser; the speedrun timer and leaderboard are the only features that talk to a server (VIVERSE's), and only if you opt in.
+- The project has no backend of its own, no test runner, and no CI configuration.
+- To enable the leaderboard locally, copy `.env.example` to `.env` and fill in your own VIVERSE app credentials; without it, the game runs normally but "See records" has nothing to show.
