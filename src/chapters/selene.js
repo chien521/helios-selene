@@ -5,11 +5,11 @@
 // new -> full -> waning -> new. A platform is solid only during its own phase; a platform with no
 // `phase` is stone and is solid always.
 //
+// title/subtitle used to live here as plain English; they are now looked up in i18n.js by chapter
+// id ('selene.title' / 'selene.subtitle') so every locale reads its own copy.
 export const selene = {
   id: 'selene',
   number: '02',
-  title: 'Selene',
-  subtitle: 'The night that kept its shape.',
   palette: { open: '#dceffa', mid: '#9ce6f7', close: '#36577d' },
   spawn: [2, 1.1],
   layout: {
@@ -42,11 +42,7 @@ export const selene = {
       glyphs: ['new', 'full', 'waning'],
       // Also the order the sky dial turns in -- the box is the manual for the verb.
       solution: ['new', 'full', 'waning'],
-      hintLines: [
-        'She showed nothing, and was still there.',
-        'She gave back all of it, and kept none.',
-        'She turned away by the width of one night.',
-      ],
+      hintKey: 'selene.lockboxHint',
     },
     lensBox: {
       on: 'full-landing',
@@ -58,12 +54,7 @@ export const selene = {
       ringSpacing: 1.25,
       interactionRange: 4.2,
       showFrameReward: false,
-      hintLines: [
-        'It was said wisdom came first, and watched from above.',
-        'The clever one followed, quiet in every step.',
-        'Then came the great one, who forgets nothing.',
-        'Last, the ordinary one - who had never walked here before.',
-      ],
+      hintKey: 'selene.lensBoxHint',
     },
     lens: { x: 46, y: -4.25, glow: '#e8fbff' },
     ladderWall: {

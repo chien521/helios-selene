@@ -97,6 +97,7 @@ export class SunField {
           consider(hitCircle(ox, oy, dx, dy, other.position.x, other.position.y, MIRROR_RADIUS), 'mirror', other)
         }
         for (const receiver of receivers) {
+          if (!receiver.group.visible) continue
           consider(hitCircle(ox, oy, dx, dy, receiver.position.x, receiver.position.y, RECEIVER_RADIUS), 'receiver', receiver)
         }
         for (const mass of masses) {

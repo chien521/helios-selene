@@ -24,6 +24,17 @@ const FULL_MOON = '#ffe6a3'
 const FULL_CRATER = '#d7b66d'
 const MOON_RIM = '#fff3c9'
 
+// NASA LRO "Moon Mosaic" (public domain, svs.gsfc.nasa.gov/5001) -- a grayscale, front-facing,
+// full-disc photograph, not an equirectangular globe map, so it maps cleanly onto a flat disc's
+// planar UVs without distortion. Reused for all three phases via MeshBasicMaterial's map*color
+// multiply: MeshBasicMaterial stays deliberately unlit (see the file-level comment on why the moon
+// must never respond to scene lighting), so tinting is the only way to differentiate phases -- the
+// same crater detail reads as a near-black new moon or a warm full moon depending on material.color.
+const MOON_TEXTURE_URL = new URL('../assets/textures/moon.jpg', import.meta.url).href
+const textureLoader = new THREE.TextureLoader()
+const moonTexture = textureLoader.load(MOON_TEXTURE_URL)
+moonTexture.colorSpace = THREE.SRGBColorSpace
+
 function addCraters(group, radius, color, positions) {
   positions.forEach(([xOffset, yOffset, size]) => {
     const crater = new THREE.Mesh(
@@ -41,7 +52,18 @@ function crescentGeometry(radius) {
   shape.bezierCurveTo(radius * .42, -radius * .86, radius * .9, -radius * .2, radius * .66, radius * .48)
   shape.bezierCurveTo(radius * .44, radius * .92, -radius * .18, radius * 1.02, -radius * .44, radius * .9)
   shape.bezierCurveTo(radius * .08, radius * .48, radius * .1, -radius * .43, -radius * .44, -radius * .9)
-  return new THREE.ShapeGeometry(shape)
+  const geometry = new THREE.ShapeGeometry(shape)
+  // ShapeGeometry's own UVs aren't guaranteed to line up with a texture the way CircleGeometry's
+  // are, so they're recomputed here to match CircleGeometry's own convention (u = (x/radius+1)/2)
+  // -- this keeps the crescent showing the same framing/scale of moonTexture as the full disc.
+  const position = geometry.attributes.position
+  const uv = new Float32Array(position.count * 2)
+  for (let i = 0; i < position.count; i++) {
+    uv[i * 2] = (position.getX(i) / radius + 1) / 2
+    uv[i * 2 + 1] = (position.getY(i) / radius + 1) / 2
+  }
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+  return geometry
 }
 
 export class Moon {
@@ -75,7 +97,7 @@ export class Moon {
     const group = new THREE.Group()
     const disc = new THREE.Mesh(
       new THREE.CircleGeometry(radius, 32),
-      new THREE.MeshBasicMaterial({ color: NEW_MOON }),
+      new THREE.MeshBasicMaterial({ color: NEW_MOON, map: moonTexture }),
     )
     const rim = new THREE.Mesh(
       new THREE.TorusGeometry(radius * .96, radius * .025, 8, 32),
@@ -95,7 +117,7 @@ export class Moon {
     halo.position.z = -.04
     const disc = new THREE.Mesh(
       new THREE.CircleGeometry(radius, 32),
-      new THREE.MeshBasicMaterial({ color: FULL_MOON }),
+      new THREE.MeshBasicMaterial({ color: FULL_MOON, map: moonTexture }),
     )
     const craters = new THREE.Group()
     addCraters(craters, radius, FULL_CRATER, [[-.28, .32, .1], [.31, .2, .075], [-.05, -.18, .13], [.36, -.36, .055], [-.43, -.28, .06]])
@@ -117,7 +139,7 @@ export class Moon {
     halo.position.z = -.04
     const crescent = new THREE.Mesh(
       crescentGeometry(radius),
-      new THREE.MeshBasicMaterial({ color: FULL_MOON }),
+      new THREE.MeshBasicMaterial({ color: FULL_MOON, map: moonTexture }),
     )
     const craters = new THREE.Group()
     addCraters(craters, radius, FULL_CRATER, [[.28, -.38, .06], [.46, .04, .055], [.25, .47, .045]])

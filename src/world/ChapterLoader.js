@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { PLAYER_Z_DEPTH } from '../core/Player.js'
 import { createBridge, createMeltBridge } from './LensGates.js'
 import { Lockbox } from './Lockbox.js'
@@ -10,6 +11,98 @@ import { PeriscopeExit } from './PeriscopeExit.js'
 
 const DEPTH = 8
 const PLAYER_STAND_OFFSET = 1.1
+// One world unit of texture per this many units of plaster -- tuned so the brushwork reads at
+// platform scale without looking either smeared (too large) or noisy (too small).
+const PLATFORM_TEXTURE_TILE = 3.4
+
+// ambientCG "Plaster001" (CC0) -- a soft, mottled, low-detail surface chosen specifically because it
+// reads as painterly rather than photographic-busy (tried and rejected several Rock* materials
+// first; see CLAUDE.md). Loaded once at module scope; each platform clones the textures so it can
+// set its own `repeat` without fighting every other platform sharing the same object.
+const platformTextureLoader = new THREE.TextureLoader()
+const platformColorMap = platformTextureLoader.load(new URL('../assets/textures/platform/color.jpg', import.meta.url).href)
+platformColorMap.colorSpace = THREE.SRGBColorSpace
+const platformNormalMap = platformTextureLoader.load(new URL('../assets/textures/platform/normal.jpg', import.meta.url).href)
+const platformRoughnessMap = platformTextureLoader.load(new URL('../assets/textures/platform/roughness.jpg', import.meta.url).href)
+;[platformColorMap, platformNormalMap, platformRoughnessMap].forEach((map) => {
+  map.wrapS = map.wrapT = THREE.RepeatWrapping
+})
+
+// Burn wall's own diffuse map -- a second, independent ComfyUI img2img restyle of the same original
+// Plaster001 source (not a recolor of platformColorMap), pushed toward scorched/cracked stone with
+// ember-warmed fissures so the wall the player burns away reads as its own object, not reused
+// platform stone with a tint. Shares platformNormalMap/platformRoughnessMap on purpose -- only the
+// diffuse/color channel is meant to carry "look," the bump/roughness detail is generic rock surface
+// data both objects can honestly share. See CLAUDE.md > Visuals > Downloaded art > AI-restyled
+// textures, and art-restyle-pipeline/workflows/restyle_burnwall_color.py for the exact workflow.
+const burnWallColorMap = platformTextureLoader.load(new URL('../assets/textures/burnwall/color.jpg', import.meta.url).href)
+burnWallColorMap.colorSpace = THREE.SRGBColorSpace
+burnWallColorMap.wrapS = burnWallColorMap.wrapT = THREE.RepeatWrapping
+
+// Quaternius "Spring"/"Bouncer" (CC0, poly.pizza/m/vKySckBbyb) replaces the hand-built coil-torus
+// stack + cylinder cap.
+//
+// The source file ships as a SkinnedMesh riding an unused "Bounce"/"Idle" armature animation, but
+// its own mesh node AND its skeleton's joint chain each carry an independent 100x scale (two
+// separate branches of the node tree, both scaled, both feeding the same skinned vertices) -- an
+// asset-side quirk that double-applies the scale through three.js's standard skinning path. Loading
+// it as a SkinnedMesh (even via SkeletonUtils.clone(), the usual fix for cloning rigged glTF
+// assets) reproduced a ~200-unit bounding box lying sideways along world Z instead of a ~1-unit
+// object standing on Y -- confirmed by inspecting the loaded scene's Box3 directly, not guessed.
+// Fix: skip the node hierarchy and skin entirely. Each mesh's geometry is extracted in its own raw,
+// untransformed local space (a small coil-and-cap pair, correctly proportioned, just Z-up like most
+// Blender exports) and rebuilt as plain static Meshes rotated -90deg about X to stand them onto Y --
+// this also means no animation plays, which is fine, since nothing in this codebase currently
+// triggers a bounce clip on launch anyway.
+const gltfLoader = new GLTFLoader()
+const SPRING_MODEL_URL = new URL('../assets/models/spring.glb', import.meta.url).href
+
+// The source file's meshes ship with no UV attribute at all (confirmed via GLTFLoader.parse() in a
+// standalone Node script) -- boxProjectUV() below is the same box/planar-projection technique used
+// for the Lockbox chest and the gem's rock base (see Lockbox.js for the fuller explanation), applied
+// here to the 'Metal' mesh only; the 'Red' emissive tip stays procedural, same reasoning as the gem's
+// crystal facets and Mirror.js's Receiver class.
+const SPRING_METAL_URL = new URL('../assets/textures/spring/metal.jpg', import.meta.url).href
+const springTextureLoader = new THREE.TextureLoader()
+const springMetalMap = springTextureLoader.load(SPRING_METAL_URL)
+springMetalMap.colorSpace = THREE.SRGBColorSpace
+springMetalMap.wrapS = springMetalMap.wrapT = THREE.RepeatWrapping
+
+function boxProjectUV(geometry) {
+  const position = geometry.attributes.position
+  if (!geometry.attributes.normal) geometry.computeVertexNormals()
+  const normal = geometry.attributes.normal
+  geometry.computeBoundingBox()
+  const bbox = geometry.boundingBox
+  const size = bbox.getSize(new THREE.Vector3())
+  const worldSize = Math.max(size.x, size.y, size.z) || 1
+  const uv = new Float32Array(position.count * 2)
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i), y = position.getY(i), z = position.getZ(i)
+    const nx = Math.abs(normal.getX(i)), ny = Math.abs(normal.getY(i)), nz = Math.abs(normal.getZ(i))
+    let u, v
+    if (nx >= ny && nx >= nz) { u = (z - bbox.min.z) / worldSize; v = (y - bbox.min.y) / worldSize }
+    else if (ny >= nx && ny >= nz) { u = (x - bbox.min.x) / worldSize; v = (z - bbox.min.z) / worldSize }
+    else { u = (x - bbox.min.x) / worldSize; v = (y - bbox.min.y) / worldSize }
+    uv[i * 2] = u
+    uv[i * 2 + 1] = v
+  }
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+}
+const SPRING_TARGET_HEIGHT = 1.06 // matches the old cap top (coils to y=.78, cap to y=1.06)
+let springModelPromise = null
+const loadSpringModel = () => {
+  if (!springModelPromise) {
+    springModelPromise = new Promise((resolve, reject) => {
+      gltfLoader.load(SPRING_MODEL_URL, (gltf) => {
+        const meshes = []
+        gltf.scene.traverse((node) => { if (node.isMesh) meshes.push(node) })
+        resolve(meshes)
+      }, undefined, reject)
+    })
+  }
+  return springModelPromise
+}
 
 // Selene's phase families. A platform's colour IS its phase -- that is the whole legend, and it has
 // to be readable in one glance from across the crater, the same standard Mirror.js sets for "the
@@ -43,6 +136,63 @@ function paintSky(ctx, topHex, middleHex, bottomHex) {
   gradient.addColorStop(1, bottomHex)
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, width, height)
+}
+
+// Tiny seeded PRNG so a chapter's cloud layout is fixed and reproducible across reloads instead of
+// reshuffling every time -- a static painting, not noise.
+function mulberry32(seed) {
+  return () => {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed)
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t
+    return ((t ^ t >>> 14) >>> 0) / 4294967296
+  }
+}
+
+function hashString(str) {
+  let h = 0
+  for (let i = 0; i < str.length; i++) h = Math.imul(31, h) + str.charCodeAt(i) | 0
+  return h
+}
+
+function hexToRgb(hex) {
+  const n = parseInt(hex.replace('#', ''), 16)
+  return [n >> 16 & 255, n >> 8 & 255, n & 255]
+}
+
+// Blends two sRGB hex colors directly in 0-255 channel space, same reasoning as darkShade() below:
+// mixing through three.js's linear color management shifts the result away from what the hex math
+// implies, so the sky's clouds stay exactly within the chapter's own palette by doing it by hand.
+function mixHex(hexA, hexB, t) {
+  const [ar, ag, ab] = hexToRgb(hexA)
+  const [br, bg, bb] = hexToRgb(hexB)
+  return [ar + (br - ar) * t, ag + (bg - ag) * t, ab + (bb - ab) * t]
+}
+
+// Paints soft, hand-painted-style cloud light over the flat gradient -- every tint is mixed from the
+// chapter's own open/mid/close palette (never a fourth, unrelated color) so the clouds always agree
+// with the mirror light, fog and grade colors that already key off those same three hexes. Seeded by
+// chapter id so Helios and Selene each get their own fixed layout rather than a shared random one.
+function paintClouds(ctx, chapterId, topHex, middleHex, bottomHex) {
+  const { width, height } = ctx.canvas
+  const rand = mulberry32(hashString(chapterId))
+  ctx.save()
+  ctx.globalCompositeOperation = 'soft-light'
+  const cloudCount = 8
+  for (let i = 0; i < cloudCount; i++) {
+    const cx = rand() * width
+    const cy = height * .1 + rand() * height * .6
+    const r = width * (.16 + rand() * .22)
+    const [tr, tg, tb] = mixHex(middleHex, topHex, rand() * .6 + .25)
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+    grad.addColorStop(0, `rgba(${tr | 0},${tg | 0},${tb | 0},${.45 + rand() * .3})`)
+    grad.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = grad
+    ctx.beginPath()
+    ctx.ellipse(cx, cy, r, r * (.4 + rand() * .25), 0, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.restore()
 }
 
 const emptyObjects = () => ({ mirrors: [], receivers: [] })
@@ -94,14 +244,46 @@ export class ChapterLoader {
   //
   // `h` defaults to the original 2 and only ever needs setting for thin slabs. `phase` makes the
   // platform one of Selene's conditional surfaces -- see setPhase() and updatePhaseVisuals().
+  // Used to also be shared with the burn wall in LensGates, both on the same ambientCG "Plaster001"
+  // diffuse map -- the burn wall now has its own independently-restyled color map (burnWallMaterial()
+  // below) so it reads as a distinct scorched rock, not reused platform stone. Ladder wall (Selene)
+  // still shares this one -- see buildFromLayout's ladderWall wiring.
+  stoneMaterial(w, h) {
+    const colorMap = platformColorMap.clone()
+    const normalMap = platformNormalMap.clone()
+    const roughnessMap = platformRoughnessMap.clone()
+    colorMap.repeat.set(w / PLATFORM_TEXTURE_TILE, h / PLATFORM_TEXTURE_TILE)
+    normalMap.repeat.copy(colorMap.repeat)
+    roughnessMap.repeat.copy(colorMap.repeat)
+    return new THREE.MeshStandardMaterial({
+      color: this.platformTint, map: colorMap, normalMap, roughnessMap, roughness: 1,
+    })
+  }
+
+  // The burn wall's own material: its own restyled diffuse map, but the same platform
+  // normal/roughness maps (generic rock bump/roughness data, not "look" -- honest to share).
+  burnWallMaterial(w, h) {
+    const colorMap = burnWallColorMap.clone()
+    const normalMap = platformNormalMap.clone()
+    const roughnessMap = platformRoughnessMap.clone()
+    colorMap.repeat.set(w / PLATFORM_TEXTURE_TILE, h / PLATFORM_TEXTURE_TILE)
+    normalMap.repeat.copy(colorMap.repeat)
+    roughnessMap.repeat.copy(colorMap.repeat)
+    return new THREE.MeshStandardMaterial({
+      color: this.platformTint, map: colorMap, normalMap, roughnessMap, roughness: 1,
+    })
+  }
+
   addPlatform({ id, x, surfaceY, w, h = 2, safeX, solves, phase, motion, enabled = true }) {
     const boxY = surfaceY - h / 2
     const tone = phase ? PHASE_TONE[phase] : null
     const material = tone
       ? new THREE.MeshStandardMaterial({ color: tone.color, emissive: tone.emissive, emissiveIntensity: 1.1, roughness: .3, transparent: true, opacity: 1 })
-      : new THREE.MeshBasicMaterial({ color: this.shadow })
+      : this.stoneMaterial(w, h)
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, DEPTH), material)
     mesh.position.set(x, boxY, PLAYER_Z_DEPTH)
+    mesh.castShadow = true
+    mesh.receiveShadow = true
     this.group.add(mesh)
     const platform = {
       id: id ?? null,
@@ -129,19 +311,58 @@ export class ChapterLoader {
   addSpring(platform, { id, x, revealed = false }) {
     const springX = x ?? platform.x + platform.w / 2 - .8
     const spring = new THREE.Group()
-    const material = new THREE.MeshStandardMaterial({ color: '#e8d8ae', emissive: '#ffb347', emissiveIntensity: 1.1, roughness: .45 })
-    for (let index = 0; index < 4; index += 1) {
-      const coil = new THREE.Mesh(new THREE.TorusGeometry(.36, .055, 8, 16), material)
-      coil.rotation.x = Math.PI / 2
-      coil.position.y = .18 + index * .2
-      spring.add(coil)
-    }
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(.42, .42, .12, 12), material)
-    cap.position.y = 1
-    spring.add(cap)
     spring.position.set(springX, platform.surfaceY, PLAYER_Z_DEPTH)
     spring.visible = revealed
     this.group.add(spring)
+
+    // Synchronous placeholder so a spring already revealed by the time this frame renders (or
+    // revealed a moment before the async model resolves) is never an invisible collider standing
+    // on empty air -- the exact "transparent box" failure mode documented for Lockbox's chest.
+    const placeholderMaterial = new THREE.MeshStandardMaterial({ color: '#e8d8ae', emissive: '#ffb347', emissiveIntensity: 1.1, roughness: .45 })
+    const placeholder = new THREE.Mesh(new THREE.CylinderGeometry(.36, .42, SPRING_TARGET_HEIGHT, 10), placeholderMaterial)
+    placeholder.position.y = SPRING_TARGET_HEIGHT / 2
+    placeholder.castShadow = true
+    placeholder.receiveShadow = true
+    spring.add(placeholder)
+
+    loadSpringModel().then((sourceMeshes) => {
+      const model = new THREE.Group()
+      sourceMeshes.forEach((node) => {
+        const material = node.material.clone()
+        if (material.name === 'Red') {
+          material.color.set('#ffb347')
+          material.emissive.set('#ff8c1a')
+          material.emissiveIntensity = 1.3
+        } else {
+          boxProjectUV(node.geometry)
+          material.map = springMetalMap
+          material.color.set('#e8d8ae')
+          material.emissive.set('#ffb347')
+          material.emissiveIntensity = .5
+          material.roughness = .4
+          material.metalness = .6
+        }
+        const springMesh = new THREE.Mesh(node.geometry.clone(), material)
+        springMesh.castShadow = true
+        springMesh.receiveShadow = true
+        model.add(springMesh)
+      })
+      // The source file's own local axes are Z-up (a typical Blender export); rotate onto Y-up
+      // BEFORE measuring, so the Box3 below reflects how the object will actually stand in-game.
+      model.rotation.x = -Math.PI / 2
+      model.updateMatrixWorld(true)
+      const rawBox = new THREE.Box3().setFromObject(model)
+      const rawHeight = rawBox.max.y - rawBox.min.y || 1
+      const scale = SPRING_TARGET_HEIGHT / rawHeight
+      model.scale.setScalar(scale)
+      model.updateMatrixWorld(true)
+      const scaledBox = new THREE.Box3().setFromObject(model)
+      model.position.y -= scaledBox.min.y
+      model.position.x -= (scaledBox.max.x + scaledBox.min.x) / 2
+      model.position.z -= (scaledBox.max.z + scaledBox.min.z) / 2
+      spring.remove(placeholder)
+      spring.add(model)
+    })
     // The collision box reaches from the platform surface to the spring cap. It makes the spring
     // a real, standable object and prevents its launch from triggering through nearby floors.
     const collider = { x: springX, y: platform.surfaceY + .5, w: .84, h: 1 }
@@ -155,6 +376,16 @@ export class ChapterLoader {
     this.clear()
     const shadow = darkShade(chapter.palette.close)
     this.shadow = shadow
+    // Stone platforms used to share `shadow` (near-black, ~5% luma) too -- now they're textured and
+    // deliberately brighter so the plaster's brushwork actually reads, while staying well below the
+    // glowing interactive objects (mirror, glyphs, moon) so those still read as the brightest things
+    // on screen. Same darkShade() helper, just a higher target.
+    // Raised from .3 to .55 for the AI-restyled color map (see Visuals > Downloaded art > AI-restyled
+    // textures in CLAUDE.md): at .3 the tint's multiply crushed nearly all of the restyled texture's
+    // own color/brushwork out before it ever reached the lit material, so the repaint was practically
+    // invisible in real gameplay despite reading clearly different as a standalone file. Verified via
+    // screenshot, not assumed -- still stays under the glowing interactive objects' brightness.
+    this.platformTint = darkShade(chapter.palette.close, .55)
     this.chapter = chapter
     const { layout } = chapter
     this.deathY = layout.deathY ?? -15
@@ -165,6 +396,7 @@ export class ChapterLoader {
       close: new THREE.Color(chapter.palette.close),
     }
     paintSky(this.skyCtx, chapter.palette.open, chapter.palette.mid, chapter.palette.close)
+    paintClouds(this.skyCtx, chapter.id, chapter.palette.open, chapter.palette.mid, chapter.palette.close)
     this.skyTexture.needsUpdate = true
     this.gradeColor.copy(this.paletteColors.open)
     this.scene.background = this.skyTexture
@@ -172,14 +404,23 @@ export class ChapterLoader {
     const ambient = new THREE.HemisphereLight(chapter.palette.close, chapter.palette.open, 2.4)
     const sun = new THREE.DirectionalLight(chapter.palette.open, 3.8)
     sun.position.set(-10, 14, 7)
+    sun.castShadow = true
+    sun.shadow.mapSize.set(2048, 2048)
+    sun.shadow.camera.near = 1
+    sun.shadow.camera.far = 80
+    sun.shadow.camera.left = -45
+    sun.shadow.camera.right = 45
+    sun.shadow.camera.top = 30
+    sun.shadow.camera.bottom = -50
+    sun.shadow.bias = -.0015
+    sun.shadow.normalBias = .02
     this.group.add(ambient, sun)
     this.ambient = ambient
     this.sun3d = sun
 
-    // The starting ground, shared by both chapters -- everything past it is chapter-specific and
-    // comes out of `layout`. Helios's pit floor used to be hard-coded here too, which meant Selene
-    // inherited a platform at y=-9 and two springs it had no use for.
-    this.hub = this.addPlatform({ x: 0, surfaceY: 0, w: 14, h: layout.platformHeight })
+    // The starting ground defaults to the shared central hub, while a chapter may place it to
+    // author a directed opening route. Helios uses that override for its left-to-right tutorial.
+    this.hub = this.addPlatform({ x: 0, surfaceY: 0, w: 14, h: layout.platformHeight, ...layout.hub })
     this.buildFromLayout(chapter, shadow)
 
     const spans = this.platforms.map((platform) => ({
@@ -212,7 +453,11 @@ export class ChapterLoader {
     const glow = layout.glow ?? '#ffd275'
     this.sun = new SunField(this.group, { zones: layout.lightZones ?? [], color: glow })
     this.objects.mirrors = (layout.mirrors ?? []).map((spec) => new Mirror(this.group, { ...spec, glow }))
-    this.objects.receivers = (layout.receivers ?? []).map((spec) => new Receiver(this.group, { ...spec, glow }))
+    this.objects.receivers = (layout.receivers ?? []).map((spec) => {
+      const receiver = new Receiver(this.group, { ...spec, glow })
+      if (spec.hidden) receiver.group.visible = false
+      return receiver
+    })
     this.lensReceiverIds = new Set(layout.lensReceivers ?? [])
 
     if (layout.moon) {
@@ -272,8 +517,16 @@ export class ChapterLoader {
       const { x, y, height, steps } = layout.ladderWall
       const wall = new THREE.Group()
       wall.position.set(x, y, PLAYER_Z_DEPTH)
-      const material = new THREE.MeshStandardMaterial({ color: shadow, emissive: glow, emissiveIntensity: .7, roughness: .45 })
-      wall.add(new THREE.Mesh(new THREE.BoxGeometry(.8, height, DEPTH), material))
+      // Same ambientCG "Plaster001" stone material the platforms and the burn wall use (see
+      // stoneMaterial() above) -- the ladder is a climbable rock face, same object family. A light
+      // emissive tint layers on top, matching the burn wall's treatment.
+      const material = this.stoneMaterial(.8, height)
+      material.emissive.set(glow)
+      material.emissiveIntensity = .35
+      const ladderMesh = new THREE.Mesh(new THREE.BoxGeometry(.8, height, DEPTH), material)
+      ladderMesh.castShadow = true
+      ladderMesh.receiveShadow = true
+      wall.add(ladderMesh)
       this.group.add(wall)
       const rungs = steps.map((step, index) => {
         const rung = this.addPlatform({ id: `ladder-rung-${index}`, ...step, enabled: false })

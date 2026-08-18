@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { PLAYER_Z_DEPTH } from '../core/Player.js'
+import { t } from '../i18n.js'
 
 const INTERACTION_RANGE = 2.6
 // Slow enough that a player can stop the sweep on a target, since the angular window onto a distant
@@ -7,10 +8,8 @@ const INTERACTION_RANGE = 2.6
 const TURN_SPEED = .9
 const DARK = '#3a2a18'
 
-// A mirror throws light along the direction it faces. This is deliberately not a physically correct
-// reflection about a surface normal: "the mirror sends light where it points" is something a player
-// can read off the screen in one glance, whereas angle-of-incidence reasoning is invisible and
-// unfun to debug by eye.
+// The reflected ray is perpendicular to the mirror surface. `angle` describes the surface itself,
+// so its outward normal is a quarter turn counter-clockwise from that orientation.
 //
 // `arc` is [min, max] in radians for a rotatable mirror, or null for a fixed relay -- a mirror
 // bolted at a set angle that the player cannot turn. Fixed relays are the main authoring tool for
@@ -51,7 +50,7 @@ export class Mirror {
   }
 
   direction() {
-    return { x: Math.cos(this.angle), y: Math.sin(this.angle) }
+    return { x: -Math.sin(this.angle), y: Math.cos(this.angle) }
   }
 
   inRange(playerPosition) {
@@ -75,7 +74,7 @@ export class Mirror {
   }
 
   prompt(playerPosition) {
-    return this.inRange(playerPosition) ? 'E / TURN MIRROR' : ''
+    return this.inRange(playerPosition) ? t('turnMirror') : ''
   }
 
   setLit(lit) {

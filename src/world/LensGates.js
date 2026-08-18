@@ -22,6 +22,8 @@ export function createFallingMass(group, { x, surfaceY, height = 6.2, thickness 
   )
   const standingY = surfaceY + height / 2
   mass.position.set(x, standingY, PLAYER_Z_DEPTH)
+  mass.castShadow = true
+  mass.receiveShadow = true
   const fallenX = x + fallDirection * height / 2
   mass.userData.gate = {
     fallen: false,
@@ -56,13 +58,20 @@ export function createBridge(group, { left, right, surfaceY, depth, color = '#b7
   return { mesh: bridge, collider: { x, y: surfaceY - height / 2, w: width, h: height } }
 }
 
-export function createMeltBridge(group, { wallX, left, right, surfaceY, depth, shadow, glow }) {
+// `wallMaterial` lets the caller hand in a real textured stone material (ChapterLoader's
+// stoneMaterial(), the same ambientCG "Plaster001" the platforms use) so the standing wall reads as
+// the same rock the player stands on; falls back to the original flat emissive box if omitted, so
+// this stays usable standalone. A light emissive tint is layered on top either way -- a sun-warmed
+// rock face, the last remnant of the old "glowing gate" look, kept subtle so the texture still reads.
+export function createMeltBridge(group, { wallX, left, right, surfaceY, depth, shadow, glow, wallMaterial }) {
   const wallHeight = 6.2
-  const wall = new THREE.Mesh(
-    new THREE.BoxGeometry(1.2, wallHeight, 1.5),
-    new THREE.MeshStandardMaterial({ color: shadow, emissive: glow, emissiveIntensity: .8, roughness: .8 }),
-  )
+  const material = wallMaterial ?? new THREE.MeshStandardMaterial({ color: shadow, emissive: glow, emissiveIntensity: .8, roughness: .8 })
+  material.emissive.set(glow)
+  material.emissiveIntensity = wallMaterial ? .35 : .8
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(1.2, wallHeight, 1.5), material)
   wall.position.set(wallX, surfaceY + wallHeight / 2, PLAYER_Z_DEPTH)
+  wall.castShadow = true
+  wall.receiveShadow = true
   const bridge = new THREE.Mesh(
     new THREE.BoxGeometry(right - left, .55, depth),
     new THREE.MeshStandardMaterial({ color: '#5b3b1d', emissive: glow, emissiveIntensity: .8, roughness: .7 }),
