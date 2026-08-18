@@ -54,6 +54,7 @@ app.innerHTML = `
   <canvas id="world" data-i18n-aria="worldAriaLabel"></canvas>
   <div id="chapter-fade" aria-hidden="true"></div>
   <div id="aim-overlay" aria-hidden="true"><div id="aim-reticle"><span></span></div></div>
+  <div id="touch-controls" aria-label="Touch controls"><div class="touch-half"><button type="button" data-touch-key="ArrowLeft" aria-label="Move left">&#x2039;</button><button type="button" data-touch-key="ArrowRight" aria-label="Move right">&#x203A;</button><button type="button" data-touch-key="ArrowUp" aria-label="Jump">&#x2191;</button></div><div class="touch-half"><button type="button" data-touch-key="KeyQ" aria-label="Select lockbox dial">Q</button><button type="button" data-touch-key="KeyE" aria-label="Interact or rotate mirror">E</button><button type="button" data-touch-key="KeyR" aria-label="Raise or lower scope">R</button></div></div>
   <section id="landing" class="screen visible"><h1>helios <i>&</i> selene</h1><p class="pitch" id="landing-pitch"></p><button class="command" data-language-entry data-i18n="enterObservatory"></button></section>
   <section id="start" class="screen"><div id="start-content"><button class="command" data-show="chapters" data-i18n="play"></button><button class="command quiet" data-tutorial-start data-i18n="gameplayWalkthrough"></button><button class="command quiet" data-show="language" data-i18n="backToLanguageSelection"></button><p id="notice" aria-live="polite"></p></div><div id="start-utility-actions"><button class="command quiet" data-viverse="avatar" data-i18n="useViverseAvatar"></button><button class="command quiet" data-viverse="records" data-i18n="seeRecords"></button></div></section>
   <section id="chapters" class="screen"><p class="eyebrow" data-i18n="chapterSelectEyebrow"></p><div class="chapter-list"><button class="chapter-card helios" data-chapter="helios"><span>01</span><strong data-i18n="helios.title"></strong><small data-i18n="helios.subtitle"></small></button><button class="chapter-card selene" data-chapter="selene" disabled><span>02</span><strong data-i18n="selene.title"></strong><small data-lock></small></button></div><button class="command quiet" data-restart data-i18n="restartGame"></button><button class="back" data-show="start" data-i18n="back" data-i18n-aria="back"></button></section>
@@ -115,6 +116,7 @@ const checkpoint = new Checkpoint(SPAWN_X, SPAWN_Y)
 const clock = new THREE.Clock()
 const screens = [...document.querySelectorAll('.screen')]
 const chapterFade = document.querySelector('#chapter-fade')
+const touchControls = document.querySelector('#touch-controls')
 const hud = document.querySelector('#hud')
 const fragmentSlots = [...document.querySelectorAll('.fragment-slots i')]
 const restartDialog = document.querySelector('#restart-dialog')
@@ -289,6 +291,7 @@ const show = (id, returnScreen = null) => {
   screens.forEach((screen) => screen.classList.toggle('visible', screen.id === id))
   document.querySelector('#landing').classList.toggle('dimmed', id !== 'landing')
   hud.classList.toggle('visible', state.playing && id !== 'pause')
+  touchControls.classList.toggle('active', state.playing && !id)
   // The run timer must not count paused time toward a speedrun, regardless of which path opened
   // or closed the pause screen (Escape, the resume button, or navigating away to another menu).
   if (id === 'pause' && !wasPaused) pauseRunTimer()
@@ -518,6 +521,24 @@ addEventListener('keydown', (event) => {
   if (event.code === 'Escape' && state.playing) show(document.querySelector('#pause').classList.contains('visible') ? '' : 'pause')
 })
 addEventListener('keyup', (event) => held.delete(event.code))
+touchControls.querySelectorAll('[data-touch-key]').forEach((button) => {
+  const code = button.dataset.touchKey
+  const dispatchKey = (type) => dispatchEvent(new KeyboardEvent(type, { code, bubbles: true, cancelable: true }))
+  const release = () => dispatchKey('keyup')
+  const stopNativeGesture = (event) => event.preventDefault()
+  button.addEventListener('contextmenu', stopNativeGesture)
+  button.addEventListener('touchstart', stopNativeGesture, { passive: false })
+  button.addEventListener('touchmove', stopNativeGesture, { passive: false })
+  button.addEventListener('pointerdown', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    button.setPointerCapture(event.pointerId)
+    dispatchKey('keydown')
+  })
+  button.addEventListener('pointerup', release)
+  button.addEventListener('pointercancel', release)
+  button.addEventListener('lostpointercapture', release)
+})
 addEventListener('pointermove', (event) => aim.move(event.clientX / innerWidth, event.clientY / innerHeight))
 addEventListener('pointerdown', (event) => {
   if (!state.playing || state.revealing || !telescope.raised || event.button !== 0) return
