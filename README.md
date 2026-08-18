@@ -4,6 +4,10 @@ A quiet 3D puzzle adventure about two skies that cannot share a horizon. Guide a
 
 Built with Three.js, Vite, and vanilla ES modules.
 
+## Live Demo
+
+[Play Helios & Selene](https://chien521.github.io/helios-selene/)
+
 ## Play locally
 
 Prerequisite: Node.js 20.19+ or 22.12+.
