@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+      "build:viverse": "vite build --base=./",
     "preview": "vite preview"
   },
   "dependencies": {

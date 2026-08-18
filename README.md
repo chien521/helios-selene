@@ -31,6 +31,16 @@ Preview that bundle with:
 npm run preview
 ```
 
+## Deploy to VIVERSE
+
+Build a portable upload bundle with:
+
+```bash
+npm run build:viverse
+```
+
+Zip the *contents* of `dist/` (so `index.html` is at the root of the zip) and upload that archive to VIVERSE. The default `npm run build` targets the GitHub Pages URL and should continue to be used by the Pages workflow.
+
 ## Controls
 
 | Action | Control |
