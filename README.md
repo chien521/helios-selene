@@ -39,7 +39,7 @@ Build a portable upload bundle with:
 npm run build:viverse
 ```
 
-Zip the *contents* of `dist/` (so `index.html` is at the root of the zip) and upload that archive to VIVERSE. This is also the default build, matching the portable deployment setup used by SNOW. GitHub Pages uses the dedicated `npm run build:github-pages` command in its deployment workflow.
+Zip the `dist/` directory itself, so the archive contains `dist/index.html` and `dist/assets/`, then upload that archive to VIVERSE. This matches SNOW's working VIVERSE package layout. GitHub Pages uses the dedicated `npm run build:github-pages` command in its deployment workflow.
 
 ## Controls
 
