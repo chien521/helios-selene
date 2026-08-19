@@ -149,11 +149,9 @@ export class ViverseSession {
     return profile
   }
 
-  // Kept for parity with the auth contract (profile fetch also needs it to run the fallback chain
-  // to completion) even though nothing in this game currently uses the URL for a visual swap — see
-  // the "avatar is login-only" note in CLAUDE.md.
   getActiveAvatarUrl(profile) {
-    return profile?.activeAvatar?.vrmUrl || profile?.activeAvatar?.avatarUrl || null
+    return profile?.activeAvatar?.vrmUrl || profile?.activeAvatar?.avatarUrl
+      || profile?.vrmUrl || profile?.avatarUrl || profile?.avatar_url || null
   }
 
   getDisplayName(profile) {

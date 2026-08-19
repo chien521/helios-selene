@@ -28,8 +28,9 @@ h2 { font-size: clamp(28px, 4vw, 48px); line-height: 1.05; }
 #pause-utility-actions.visible { display: flex; }
 #pause .command { width: min(100%, 280px); min-height: 50px; color: #f6f1e8; border-color: rgba(246,241,232,.7); }
 #pause-utility-actions .command { flex: 1; width: 0; min-height: 44px; margin: 0; }
-#pause-trigger { position: fixed; z-index: 2; bottom: 25px; left: 25px; display: none; min-height: 36px; margin: 0; padding: 8px 12px; font-size: 10px; letter-spacing: .1em; white-space: nowrap; }
+#pause-trigger { position: fixed; z-index: 2; bottom: 25px; left: 25px; display: none; min-height: 36px; margin: 0; border: 1px solid rgba(246,241,232,.65); padding: 8px 12px; color: #f6f1e8; background: rgba(18,26,40,.65); font-size: 10px; letter-spacing: .1em; white-space: nowrap; }
 #pause-trigger.visible { display: block; }
+#pause-trigger:hover { color: #192741; background: #f7bd73; border-color: #f7bd73; }
 #language-select { width: min(100%, 280px); min-height: 46px; margin: 5px 5px 18px; padding: 8px 12px; color: #f6f1e8; background: #192741; border: 1px solid rgba(246,241,232,.55); font: inherit; }
 #language .command { width: min(100%, 280px); min-height: 50px; }
 #chapters > .command.quiet, #chapters > .back { width: min(100%, 280px); min-height: 50px; }

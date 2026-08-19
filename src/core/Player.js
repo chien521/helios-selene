@@ -15,6 +15,7 @@ const VISUAL_SCALE = 1.12
 // The static traveler faces +Z; rotate it into the platformer's side view.
 const BASE_FACING_Y = Math.PI / 2
 const gltfLoader = new GLTFLoader()
+gltfLoader.setCrossOrigin('anonymous')
 
 export class Player {
   constructor(scene, spawnX, spawnY) {
@@ -36,11 +37,14 @@ export class Player {
     this.staticParts = {}
     this.modelRestPosition = new THREE.Vector3()
     this.modelRestScale = new THREE.Vector3()
+    this.modelBaseFacingY = BASE_FACING_Y
+    this.usingViverseAvatar = false
     this._loadModel()
   }
 
   _loadModel() {
     gltfLoader.load(MODEL_URL, (gltf) => {
+      if (this.usingViverseAvatar) return
       const model = gltf.scene
       model.traverse((node) => {
         if (node.isMesh) {
@@ -60,6 +64,7 @@ export class Player {
       model.rotation.y = BASE_FACING_Y
       this.modelRestPosition.copy(model.position)
       this.modelRestScale.copy(model.scale)
+      this.modelBaseFacingY = BASE_FACING_Y
 
       this.model = model
       this.mesh.add(model)
@@ -80,6 +85,55 @@ export class Player {
         this.actions[key] = this.mixer.clipAction(clip)
       }
       this._play('Idle')
+    })
+  }
+
+  loadViverseAvatar(url) {
+    if (!url) return Promise.resolve(false)
+    return new Promise((resolve) => {
+      gltfLoader.load(url, (gltf) => {
+        try {
+          const model = gltf.scene
+          model.traverse((node) => {
+            node.visible = true
+            if (node.isMesh) {
+              node.castShadow = true
+              node.receiveShadow = true
+              node.frustumCulled = false
+            }
+          })
+
+          const restBox = new THREE.Box3().setFromObject(model)
+          const restHeight = restBox.max.y - restBox.min.y || 1
+          const scale = (this.body.hh * 2 * VISUAL_SCALE) / restHeight
+          model.scale.setScalar(scale)
+          const scaledBox = new THREE.Box3().setFromObject(model)
+          model.position.y -= scaledBox.min.y + this.body.hh
+          model.position.x -= (scaledBox.max.x + scaledBox.min.x) / 2
+
+          const previousModel = this.model
+          this.mesh.add(model)
+          if (previousModel) this.mesh.remove(previousModel)
+          this.model = model
+          this.modelRestPosition.copy(model.position)
+          this.modelRestScale.copy(model.scale)
+          // VRM avatars face -Z by convention; this puts them in the same side-on orientation
+          // as the existing player and keeps the regular left/right facing logic intact.
+          this.modelBaseFacingY = -Math.PI / 2
+          this.staticParts = {}
+          this.actions = {}
+          this.currentAction = null
+          this.mixer = null
+          this.usingViverseAvatar = true
+          resolve(true)
+        } catch (error) {
+          console.warn('VIVERSE avatar setup failed.', error)
+          resolve(false)
+        }
+      }, undefined, (error) => {
+        console.warn('VIVERSE avatar load failed.', error)
+        resolve(false)
+      })
     })
   }
 
@@ -166,8 +220,14 @@ export class Player {
     if (axis > 0.01) this.facing = 1
     else if (axis < -0.01) this.facing = -1
     if (this.model) {
-      this.model.rotation.y = BASE_FACING_Y + (this.facing < 0 ? Math.PI : 0)
-      this._animateStaticTraveler(delta, axis)
+      this.model.rotation.y = this.modelBaseFacingY + (this.facing < 0 ? Math.PI : 0)
+      if (this.usingViverseAvatar) {
+        this.model.position.copy(this.modelRestPosition)
+        this.model.scale.copy(this.modelRestScale)
+        this.model.rotation.z = 0
+      } else {
+        this._animateStaticTraveler(delta, axis)
+      }
     }
 
     this.mixer?.update(delta)

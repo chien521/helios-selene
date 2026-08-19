@@ -28,7 +28,7 @@ const SPAWN_X = -3
 const SPAWN_Y = 1.1
 // Each chapter assembles its own optic: Helios's magnifier uses a frame and fire lens, while
 // Selene's telescope uses a moon lens and eyepiece. Shared flags keep the parts HUD generic.
-const state = { chapter: null, frameCollected: false, lensBoxRevealed: false, lensCollected: false, unlocked: saved('helios-complete'), playing: false, ending: false, revealing: false, moonViewing: false, runSeconds: 0, runSubmitted: false, tutorial: null, viverseName: null }
+const state = { chapter: null, frameCollected: false, lensBoxRevealed: false, lensCollected: false, unlocked: saved('helios-complete'), playing: false, ending: false, revealing: false, moonViewing: false, runSeconds: 0, runSubmitted: false, tutorial: null, viverseName: null, viverseAvatarLoaded: false }
 const RECORDS_LEADERBOARD = import.meta.env.VITE_VIVERSE_LEADERBOARD_SPEEDRUN
 const app = document.querySelector('#app')
 app.innerHTML = `
@@ -219,13 +219,15 @@ const formatTime = (seconds) => {
   return `${minutes}:${secs.toFixed(3).padStart(6, '0')}`
 }
 
-// --- VIVERSE: avatar connect is real login only (confirms identity, shows a display name) -- this
-// game has no VRM avatar-swap capability like the sibling puzzle_game, so raising the flag here
-// never claims a visual change that doesn't happen. See CLAUDE.md's VIVERSE section.
 const refreshAvatarButton = () => {
-  avatarButton.textContent = viverseSession.isLoggedIn() && state.viverseName
+  avatarButton.textContent = viverseSession.isLoggedIn() && state.viverseName && state.viverseAvatarLoaded
     ? t('connectedAs', { name: state.viverseName })
     : t('useViverseAvatar')
+}
+const loadViverseAvatar = async (profile) => {
+  const avatarUrl = viverseSession.getActiveAvatarUrl(profile)
+  state.viverseAvatarLoaded = await player.loadViverseAvatar(avatarUrl)
+  return state.viverseAvatarLoaded
 }
 async function connectViverse(reason) {
   avatarButton.disabled = true
@@ -235,7 +237,8 @@ async function connectViverse(reason) {
     if (!auth) return null // page is redirecting to VIVERSE login
     const profile = await viverseSession.fetchProfile()
     state.viverseName = viverseSession.getDisplayName(profile)
-    notice.textContent = t('connectedAs', { name: state.viverseName })
+    if (await loadViverseAvatar(profile)) notice.textContent = t('connectedAs', { name: state.viverseName })
+    else notice.textContent = t('viverseConnectFailed')
     return auth
   } catch (error) {
     console.warn('VIVERSE connection failed.', error)
@@ -786,8 +789,9 @@ viverseSession.resumePending().then(async (pending) => {
   if (pending.reason === 'avatar') {
     const profile = await viverseSession.fetchProfile()
     state.viverseName = viverseSession.getDisplayName(profile)
+    const avatarLoaded = await loadViverseAvatar(profile)
     refreshAvatarButton()
-    notice.textContent = t('connectedAs', { name: state.viverseName })
+    notice.textContent = avatarLoaded ? t('connectedAs', { name: state.viverseName }) : t('viverseConnectFailed')
   } else if (pending.reason === 'submit' && typeof pending.runSeconds === 'number') {
     // The ending screen's own state doesn't survive a full-page login redirect, so this submits
     // the score the pending payload carried and reports the outcome on the start screen instead.

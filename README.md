@@ -76,7 +76,7 @@ Selene unlocks automatically once Helios is finished — progress is saved local
 - **Chapter select, pause menu, and a restart-game dialog**, all reachable mid-run.
 - **A guided "Gameplay walkthrough"** from the start screen — a short, skippable step-by-step tutorial covering movement, jumping, lockbox dials, and the magnifier, before the real chapters begin.
 - **14 languages** (English, Traditional & Simplified Chinese, Japanese, Russian, Spanish, Portuguese, French, German, Italian, Korean, Hindi, Arabic, Thai), selected once up front and changeable again from the pause menu.
-- **Optional VIVERSE integration**: connect a VIVERSE avatar/login, and submit a completed run's time to a global speedrun leaderboard visible from "See records" on the start screen. Entirely optional — the game is fully playable as a guest with no account.
+- **Optional VIVERSE integration**: connect a VIVERSE account to play as its active VRM/GLB avatar, and submit a completed run's time to a global speedrun leaderboard visible from "See records" on the start screen. Entirely optional — the game is fully playable as a guest with no account.
 
 ## Project structure
 
