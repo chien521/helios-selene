@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { VRMLoaderPlugin } from '@pixiv/three-vrm'
+import { VRMAnimationLoaderPlugin, VRMLookAtQuaternionProxy, createVRMAnimationClip } from '@pixiv/three-vrm-animation'
 import { moveAndCollide } from './Physics2D.js'
 
 export const PLAYER_Z_DEPTH = -4
@@ -11,6 +13,7 @@ const COYOTE_TIME = .1
 const JUMP_BUFFER_TIME = .1
 
 const MODEL_URL = new URL('../assets/models/low_poly_wizard_traveler.glb', import.meta.url).href
+const VIVERSE_IDLE_VRMA_URL = `${import.meta.env.BASE_URL}animations/idle.vrma`
 const VISUAL_SCALE = 1.12
 // The static traveler faces +Z; rotate it into the platformer's side view.
 const BASE_FACING_Y = Math.PI / 2
@@ -39,6 +42,10 @@ export class Player {
     this.modelRestScale = new THREE.Vector3()
     this.modelBaseFacingY = BASE_FACING_Y
     this.usingViverseAvatar = false
+    this.vrm = null
+    this.vrmMixer = null
+    this.vrmBones = null
+    this.vrmRestRotations = new Map()
     this._loadModel()
   }
 
@@ -91,11 +98,15 @@ export class Player {
   loadViverseAvatar(url) {
     if (!url) return Promise.resolve(false)
     return new Promise((resolve) => {
-      gltfLoader.load(url, (gltf) => {
+      const avatarLoader = new GLTFLoader()
+      avatarLoader.setCrossOrigin('anonymous')
+      avatarLoader.register((parser) => new VRMLoaderPlugin(parser))
+      avatarLoader.load(url, async (gltf) => {
         try {
           const model = gltf.scene
           model.traverse((node) => {
             node.visible = true
+            node.layers.set(0)
             if (node.isMesh) {
               node.castShadow = true
               node.receiveShadow = true
@@ -125,6 +136,12 @@ export class Player {
           this.currentAction = null
           this.mixer = null
           this.usingViverseAvatar = true
+          this.vrm = gltf.userData.vrm || null
+          this.vrmBones = this.vrm ? this._getVrmBones(this.vrm) : null
+          this.vrmRestRotations = new Map(Object.values(this.vrmBones || {})
+            .filter(Boolean)
+            .map((bone) => [bone, bone.quaternion.clone()]))
+          this.vrmMixer = this.vrm ? await this._loadVrmIdleAnimation(this.vrm) : null
           resolve(true)
         } catch (error) {
           console.warn('VIVERSE avatar setup failed.', error)
@@ -135,6 +152,77 @@ export class Player {
         resolve(false)
       })
     })
+  }
+
+  async _loadVrmIdleAnimation(vrm) {
+    try {
+      if (vrm.lookAt) {
+        const lookAtProxy = new VRMLookAtQuaternionProxy(vrm.lookAt)
+        lookAtProxy.name = 'lookAtQuaternionProxy'
+        vrm.scene.add(lookAtProxy)
+      }
+      const animationLoader = new GLTFLoader()
+      animationLoader.register((parser) => new VRMAnimationLoaderPlugin(parser))
+      const animationGltf = await animationLoader.loadAsync(VIVERSE_IDLE_VRMA_URL)
+      const animation = animationGltf.userData.vrmAnimations?.[0]
+      if (!animation) throw new Error('No VRMA animation was found in the idle clip.')
+      const clip = createVRMAnimationClip(animation, vrm)
+      const mixer = new THREE.AnimationMixer(vrm.scene)
+      mixer.clipAction(clip).setLoop(THREE.LoopRepeat).play()
+      return mixer
+    } catch (error) {
+      console.warn('VIVERSE VRMA idle animation failed to load.', error)
+      return null
+    }
+  }
+
+  _getVrmBones(vrm) {
+    const bone = (name) => vrm.humanoid?.getNormalizedBoneNode(name) || null
+    return {
+      leftUpperArm: bone('leftUpperArm'), rightUpperArm: bone('rightUpperArm'),
+      leftLowerArm: bone('leftLowerArm'), rightLowerArm: bone('rightLowerArm'),
+      leftUpperLeg: bone('leftUpperLeg'), rightUpperLeg: bone('rightUpperLeg'),
+      spine: bone('spine'),
+    }
+  }
+
+  _poseVrmBone(bone, rotations) {
+    const rest = this.vrmRestRotations.get(bone)
+    if (!bone || !rest) return
+    bone.quaternion.copy(rest)
+    rotations.forEach(({ axis, angle, space = 'local' }) => {
+      const rotation = new THREE.Quaternion().setFromAxisAngle(axis, angle)
+      if (space === 'parent') bone.quaternion.premultiply(rotation)
+      else bone.quaternion.multiply(rotation)
+    })
+  }
+
+  _animateViverseAvatar(delta, axis) {
+    const moving = Math.min(Math.abs(axis), 1)
+    const airborne = !this.body.grounded
+    this.motionTime += delta
+    if (this.vrmMixer && !airborne && moving < .01) {
+      this.vrmMixer.update(delta)
+      return
+    }
+
+    const bones = this.vrmBones
+    if (!bones) return
+    const stride = Math.sin(this.motionTime * 13) * moving
+    const armLift = airborne ? .2 : 0
+    this._poseVrmBone(bones.leftUpperArm, [
+      { axis: new THREE.Vector3(0, 0, 1), angle: 1.05 - armLift },
+      { axis: new THREE.Vector3(1, 0, 0), angle: -stride * .52, space: 'parent' },
+    ])
+    this._poseVrmBone(bones.rightUpperArm, [
+      { axis: new THREE.Vector3(0, 0, 1), angle: -1.05 + armLift },
+      { axis: new THREE.Vector3(1, 0, 0), angle: stride * .52, space: 'parent' },
+    ])
+    this._poseVrmBone(bones.leftLowerArm, [{ axis: new THREE.Vector3(1, 0, 0), angle: -.12 + Math.max(0, stride) * .22 }])
+    this._poseVrmBone(bones.rightLowerArm, [{ axis: new THREE.Vector3(1, 0, 0), angle: -.12 + Math.max(0, -stride) * .22 }])
+    this._poseVrmBone(bones.leftUpperLeg, [{ axis: new THREE.Vector3(1, 0, 0), angle: airborne ? -.3 : -stride * .45 }])
+    this._poseVrmBone(bones.rightUpperLeg, [{ axis: new THREE.Vector3(1, 0, 0), angle: airborne ? -.3 : stride * .45 }])
+    this._poseVrmBone(bones.spine, [{ axis: new THREE.Vector3(0, 0, 1), angle: airborne ? Math.sign(this.body.vy) * -.08 : 0 }])
   }
 
   _animateStaticTraveler(delta, axis) {
@@ -225,6 +313,8 @@ export class Player {
         this.model.position.copy(this.modelRestPosition)
         this.model.scale.copy(this.modelRestScale)
         this.model.rotation.z = 0
+        this._animateViverseAvatar(delta, axis)
+        this.vrm?.update(delta)
       } else {
         this._animateStaticTraveler(delta, axis)
       }
