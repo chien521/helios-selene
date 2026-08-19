@@ -54,14 +54,14 @@ app.innerHTML = `
   <canvas id="world" data-i18n-aria="worldAriaLabel"></canvas>
   <div id="chapter-fade" aria-hidden="true"></div>
   <div id="aim-overlay" aria-hidden="true"><div id="aim-reticle"><span></span></div></div>
-  <div id="touch-controls" aria-label="Touch controls"><div class="touch-half"><button type="button" data-touch-key="ArrowLeft" aria-label="Move left">&#x2039;</button><button type="button" data-touch-key="ArrowRight" aria-label="Move right">&#x203A;</button></div><div class="touch-half"><button type="button" data-touch-key="KeyQ" aria-label="Focus or select lockbox dial">Q</button><button type="button" data-touch-key="KeyE" aria-label="Interact or rotate mirror">E</button><button type="button" data-touch-key="KeyR" aria-label="Raise or lower scope">R</button><button type="button" data-touch-key="ArrowUp" aria-label="Jump">&#x2191;</button></div></div>
+  <div id="touch-controls" aria-label="Touch controls"><div class="touch-half"><button type="button" data-touch-key="ArrowLeft" aria-label="Move left">&#x2039;</button><button type="button" data-touch-key="ArrowRight" aria-label="Move right">&#x203A;</button></div><div class="touch-half"><button type="button" data-touch-key="KeyQ" aria-label="Focus or select lockbox dial">Q</button><button type="button" data-touch-key="KeyE" aria-label="Interact or rotate mirror">E</button><button type="button" data-touch-key="KeyR" aria-label="Raise or lower scope">R</button><div class="touch-stack"><button type="button" data-touch-key="KeyH" aria-label="Read or close lockbox poem">H</button><button type="button" data-touch-key="ArrowUp" aria-label="Jump">&#x2191;</button></div></div></div>
   <section id="landing" class="screen visible"><h1>helios <i>&</i> selene</h1><p class="pitch" id="landing-pitch"></p><button class="command" data-language-entry data-i18n="enterObservatory"></button></section>
   <section id="start" class="screen"><div id="start-content"><button class="command" data-show="chapters" data-i18n="play"></button><button class="command quiet" data-tutorial-start data-i18n="gameplayWalkthrough"></button><button class="command quiet" data-show="language" data-i18n="backToLanguageSelection"></button><p id="notice" aria-live="polite"></p></div><div id="start-utility-actions"><button class="command quiet" data-viverse="avatar" data-i18n="useViverseAvatar"></button><button class="command quiet" data-viverse="records" data-i18n="seeRecords"></button></div></section>
   <section id="chapters" class="screen"><p class="eyebrow" data-i18n="chapterSelectEyebrow"></p><div class="chapter-list"><button class="chapter-card helios" data-chapter="helios"><span>01</span><strong data-i18n="helios.title"></strong><small data-i18n="helios.subtitle"></small></button><button class="chapter-card selene" data-chapter="selene" disabled><span>02</span><strong data-i18n="selene.title"></strong><small data-lock></small></button></div><button class="command quiet" data-restart data-i18n="restartGame"></button><button class="back" data-show="start" data-i18n="back" data-i18n-aria="back"></button></section>
   <section id="records" class="screen"><h2 data-i18n="recordsTitle"></h2><div class="records-header"><span data-i18n="rankColumn"></span><span data-i18n="nameColumn"></span><span data-i18n="timeColumn"></span></div><ol id="records-list"></ol><p id="records-status" aria-live="polite"></p><button class="back" data-show="start" data-i18n="closeRecords"></button></section>
   <section id="guide" class="screen"><div class="guide-board"><p class="eyebrow" data-i18n="fieldNotesEyebrow"></p><h2 data-i18n="guideHeading"></h2><dl><div><dt data-i18n="dtMove"></dt><dd>W A S D</dd></div><div><dt data-i18n="dtJump"></dt><dd data-i18n="ddJump"></dd></div><div><dt data-i18n="dtInteract"></dt><dd>E</dd></div><div><dt data-i18n="dtDial"></dt><dd data-i18n="ddDial"></dd></div><div><dt data-i18n="dtInstrument"></dt><dd data-i18n="ddInstrument"></dd></div><div><dt data-i18n="dtFocus"></dt><dd>Q</dd></div><div><dt data-i18n="dtMoonView"></dt><dd>Space</dd></div><div><dt data-i18n="dtPause"></dt><dd>Escape</dd></div></dl><p class="instrument-note" data-i18n="instrumentNoteHelios"></p><p class="instrument-note" data-i18n="instrumentNoteSelene"></p><p class="credits" id="credits-line"></p><button class="back" data-show="start" data-i18n="back"></button></div></section>
   <section id="language" class="screen"><h2 data-i18n="language"></h2><select id="language-select" data-i18n-aria="language"><option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="zh-Hans">简体中文</option><option value="ja">日本語</option><option value="ru">Русский</option><option value="es">Espanol</option><option value="pt">Portugues</option><option value="pt-BR">Portugues (Brasil)</option><option value="fr">Francais</option><option value="de">Deutsch</option><option value="it">Italiano</option><option value="ko">한국어</option><option value="hi">हिन्दी</option><option value="ar">العربية</option><option value="th">ไทย</option></select><button class="command" data-language-confirm data-i18n="confirm"></button></section>
-  <section id="hud"><p id="chapter-name"></p><div id="fragments" aria-label="Instrument parts: 0 of 2"><span id="fragment-count">PARTS 0 / 2</span><div class="fragment-slots" aria-hidden="true"><i></i><i></i></div></div><p id="moon-phase" hidden></p><p id="scope-label" data-i18n="findInstrumentPart"></p></section>
+  <section id="hud"><p id="chapter-name"></p><p id="run-timer" data-i18n-aria="timeColumn">0:00</p><div id="fragments" aria-label="Instrument parts: 0 of 2"><span id="fragment-count">PARTS 0 / 2</span><div class="fragment-slots" aria-hidden="true"><i></i><i></i></div></div><p id="moon-phase" hidden></p><p id="scope-label" data-i18n="findInstrumentPart"></p></section>
   <aside id="tutorial-task" aria-live="polite" aria-atomic="true" hidden><p id="tutorial-progress"></p><p id="tutorial-copy"></p><button type="button" data-tutorial-skip></button></aside>
   <aside id="selene-intro" aria-live="polite" data-i18n="seleneIntroText"></aside>
   <button id="locate-moon" data-locate-moon data-i18n="locateMoon"></button>
@@ -120,6 +120,7 @@ const screens = [...document.querySelectorAll('.screen')]
 const chapterFade = document.querySelector('#chapter-fade')
 const touchControls = document.querySelector('#touch-controls')
 const hud = document.querySelector('#hud')
+const runTimer = document.querySelector('#run-timer')
 const pause = document.querySelector('#pause')
 const pauseUtilityActions = document.querySelector('#pause-utility-actions')
 const pauseTrigger = document.querySelector('#pause-trigger')
@@ -212,11 +213,12 @@ const startRunTimer = () => { runStartTime = performance.now(); pauseStartedAt =
 const stopRunTimer = () => { runStartTime = null; pauseStartedAt = null; pausedDuration = 0 }
 const pauseRunTimer = () => { if (runStartTime !== null && pauseStartedAt === null) pauseStartedAt = performance.now() }
 const resumeRunTimer = () => { if (pauseStartedAt !== null) { pausedDuration += performance.now() - pauseStartedAt; pauseStartedAt = null } }
+const wholeSeconds = (seconds) => Math.floor(Math.max(0, seconds))
 const formatTime = (seconds) => {
-  const total = Math.max(0, seconds)
+  const total = wholeSeconds(seconds)
   const minutes = Math.floor(total / 60)
-  const secs = total - minutes * 60
-  return `${minutes}:${secs.toFixed(3).padStart(6, '0')}`
+  const secs = total % 60
+  return `${minutes}:${String(secs).padStart(2, '0')}`
 }
 
 const refreshAvatarButton = () => {
@@ -281,7 +283,7 @@ async function submitRun() {
   submitButton.disabled = true
   const auth = await viverseSession.ensureLogin({ reason: 'submit', runSeconds: state.runSeconds })
   if (!auth) return // page is redirecting to VIVERSE login; resumePending() picks this back up on return
-  const ok = await viverseSession.submitScore(RECORDS_LEADERBOARD, Math.round(state.runSeconds))
+  const ok = await viverseSession.submitScore(RECORDS_LEADERBOARD, wholeSeconds(state.runSeconds))
   submitButton.disabled = false
   if (ok) {
     state.runSubmitted = true
@@ -661,6 +663,7 @@ function focusLine(objects) {
 
 function update(delta) {
   if (!state.playing || document.querySelector('#pause').classList.contains('visible')) return
+  runTimer.textContent = formatTime(elapsedRunSeconds())
   const objects = loader.objects
   if (state.revealing) {
     loader.updateGlow(clock.elapsedTime, player.position)
@@ -795,7 +798,7 @@ viverseSession.resumePending().then(async (pending) => {
   } else if (pending.reason === 'submit' && typeof pending.runSeconds === 'number') {
     // The ending screen's own state doesn't survive a full-page login redirect, so this submits
     // the score the pending payload carried and reports the outcome on the start screen instead.
-    const ok = await viverseSession.submitScore(RECORDS_LEADERBOARD, Math.round(pending.runSeconds))
+    const ok = await viverseSession.submitScore(RECORDS_LEADERBOARD, wholeSeconds(pending.runSeconds))
     notice.textContent = ok ? t('runSubmitted') : t('submitFailed')
   }
 }).catch((error) => console.warn('Failed to resume VIVERSE session.', error))
