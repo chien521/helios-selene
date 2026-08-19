@@ -454,7 +454,7 @@ export class ChapterLoader {
     this.sun = new SunField(this.group, { zones: layout.lightZones ?? [], color: glow })
     this.objects.mirrors = (layout.mirrors ?? []).map((spec) => new Mirror(this.group, { ...spec, glow }))
     this.objects.receivers = (layout.receivers ?? []).map((spec) => {
-      const receiver = new Receiver(this.group, { ...spec, glow })
+      const receiver = new Receiver(this.group, { ...spec, glow: spec.glow ?? glow })
       if (spec.hidden) receiver.group.visible = false
       return receiver
     })

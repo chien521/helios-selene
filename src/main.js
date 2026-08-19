@@ -54,20 +54,22 @@ app.innerHTML = `
   <canvas id="world" data-i18n-aria="worldAriaLabel"></canvas>
   <div id="chapter-fade" aria-hidden="true"></div>
   <div id="aim-overlay" aria-hidden="true"><div id="aim-reticle"><span></span></div></div>
-  <div id="touch-controls" aria-label="Touch controls"><div class="touch-half"><button type="button" data-touch-key="ArrowLeft" aria-label="Move left">&#x2039;</button><button type="button" data-touch-key="ArrowRight" aria-label="Move right">&#x203A;</button><button type="button" data-touch-key="ArrowUp" aria-label="Jump">&#x2191;</button></div><div class="touch-half"><button type="button" data-touch-key="KeyQ" aria-label="Select lockbox dial">Q</button><button type="button" data-touch-key="KeyE" aria-label="Interact or rotate mirror">E</button><button type="button" data-touch-key="KeyR" aria-label="Raise or lower scope">R</button></div></div>
+  <div id="touch-controls" aria-label="Touch controls"><div class="touch-half"><button type="button" data-touch-key="ArrowLeft" aria-label="Move left">&#x2039;</button><button type="button" data-touch-key="ArrowRight" aria-label="Move right">&#x203A;</button></div><div class="touch-half"><button type="button" data-touch-key="KeyQ" aria-label="Focus or select lockbox dial">Q</button><button type="button" data-touch-key="KeyE" aria-label="Interact or rotate mirror">E</button><button type="button" data-touch-key="KeyR" aria-label="Raise or lower scope">R</button><button type="button" data-touch-key="ArrowUp" aria-label="Jump">&#x2191;</button></div></div>
   <section id="landing" class="screen visible"><h1>helios <i>&</i> selene</h1><p class="pitch" id="landing-pitch"></p><button class="command" data-language-entry data-i18n="enterObservatory"></button></section>
   <section id="start" class="screen"><div id="start-content"><button class="command" data-show="chapters" data-i18n="play"></button><button class="command quiet" data-tutorial-start data-i18n="gameplayWalkthrough"></button><button class="command quiet" data-show="language" data-i18n="backToLanguageSelection"></button><p id="notice" aria-live="polite"></p></div><div id="start-utility-actions"><button class="command quiet" data-viverse="avatar" data-i18n="useViverseAvatar"></button><button class="command quiet" data-viverse="records" data-i18n="seeRecords"></button></div></section>
   <section id="chapters" class="screen"><p class="eyebrow" data-i18n="chapterSelectEyebrow"></p><div class="chapter-list"><button class="chapter-card helios" data-chapter="helios"><span>01</span><strong data-i18n="helios.title"></strong><small data-i18n="helios.subtitle"></small></button><button class="chapter-card selene" data-chapter="selene" disabled><span>02</span><strong data-i18n="selene.title"></strong><small data-lock></small></button></div><button class="command quiet" data-restart data-i18n="restartGame"></button><button class="back" data-show="start" data-i18n="back" data-i18n-aria="back"></button></section>
   <section id="records" class="screen"><h2 data-i18n="recordsTitle"></h2><div class="records-header"><span data-i18n="rankColumn"></span><span data-i18n="nameColumn"></span><span data-i18n="timeColumn"></span></div><ol id="records-list"></ol><p id="records-status" aria-live="polite"></p><button class="back" data-show="start" data-i18n="closeRecords"></button></section>
-  <section id="guide" class="screen"><div class="guide-board"><p class="eyebrow" data-i18n="fieldNotesEyebrow"></p><h2 data-i18n="guideHeading"></h2><dl><div><dt data-i18n="dtMove"></dt><dd>W A S D</dd></div><div><dt data-i18n="dtJump"></dt><dd data-i18n="ddJump"></dd></div><div><dt data-i18n="dtInteract"></dt><dd>E</dd></div><div><dt data-i18n="dtDial"></dt><dd data-i18n="ddDial"></dd></div><div><dt data-i18n="dtInstrument"></dt><dd data-i18n="ddInstrument"></dd></div><div><dt data-i18n="dtFocus"></dt><dd data-i18n="ddFocus"></dd></div><div><dt data-i18n="dtMoonView"></dt><dd>Space</dd></div><div><dt data-i18n="dtPause"></dt><dd>Escape</dd></div></dl><p class="instrument-note" data-i18n="instrumentNoteHelios"></p><p class="instrument-note" data-i18n="instrumentNoteSelene"></p><p class="credits" id="credits-line"></p><button class="back" data-show="start" data-i18n="back"></button></div></section>
+  <section id="guide" class="screen"><div class="guide-board"><p class="eyebrow" data-i18n="fieldNotesEyebrow"></p><h2 data-i18n="guideHeading"></h2><dl><div><dt data-i18n="dtMove"></dt><dd>W A S D</dd></div><div><dt data-i18n="dtJump"></dt><dd data-i18n="ddJump"></dd></div><div><dt data-i18n="dtInteract"></dt><dd>E</dd></div><div><dt data-i18n="dtDial"></dt><dd data-i18n="ddDial"></dd></div><div><dt data-i18n="dtInstrument"></dt><dd data-i18n="ddInstrument"></dd></div><div><dt data-i18n="dtFocus"></dt><dd>Q</dd></div><div><dt data-i18n="dtMoonView"></dt><dd>Space</dd></div><div><dt data-i18n="dtPause"></dt><dd>Escape</dd></div></dl><p class="instrument-note" data-i18n="instrumentNoteHelios"></p><p class="instrument-note" data-i18n="instrumentNoteSelene"></p><p class="credits" id="credits-line"></p><button class="back" data-show="start" data-i18n="back"></button></div></section>
   <section id="language" class="screen"><h2 data-i18n="language"></h2><select id="language-select" data-i18n-aria="language"><option value="en">English</option><option value="zh-Hant">繁體中文</option><option value="zh-Hans">简体中文</option><option value="ja">日本語</option><option value="ru">Русский</option><option value="es">Espanol</option><option value="pt">Portugues</option><option value="pt-BR">Portugues (Brasil)</option><option value="fr">Francais</option><option value="de">Deutsch</option><option value="it">Italiano</option><option value="ko">한국어</option><option value="hi">हिन्दी</option><option value="ar">العربية</option><option value="th">ไทย</option></select><button class="command" data-language-confirm data-i18n="confirm"></button></section>
   <section id="hud"><p id="chapter-name"></p><div id="fragments" aria-label="Instrument parts: 0 of 2"><span id="fragment-count">PARTS 0 / 2</span><div class="fragment-slots" aria-hidden="true"><i></i><i></i></div></div><p id="moon-phase" hidden></p><p id="scope-label" data-i18n="findInstrumentPart"></p></section>
   <aside id="tutorial-task" aria-live="polite" aria-atomic="true" hidden><p id="tutorial-progress"></p><p id="tutorial-copy"></p><button type="button" data-tutorial-skip></button></aside>
   <aside id="selene-intro" aria-live="polite" data-i18n="seleneIntroText"></aside>
   <button id="locate-moon" data-locate-moon data-i18n="locateMoon"></button>
   <button id="locate-exit" data-locate-exit data-i18n="locateExit"></button>
+  <button id="pause-trigger" class="command quiet" type="button" data-pause-toggle></button>
   <aside id="lockbox-hint" aria-live="polite" aria-hidden="true"><div id="lockbox-hint-text"></div><p class="hint-close" data-i18n="hintClose"></p></aside>
-  <section id="pause" class="screen"><p class="eyebrow" data-i18n="pausedEyebrow"></p><button class="command" data-resume data-i18n="pauseReturn"></button><button class="command quiet" data-show="chapters" data-i18n="chapterSelect"></button><button class="command quiet" data-show="language" data-i18n="language"></button><button class="command quiet" data-restart data-i18n="restartGame"></button></section>
+  <div id="pause"><button class="command quiet" data-resume data-i18n="pauseReturn"></button><button class="command quiet" data-restart data-i18n="restartGame"></button></div>
+  <div id="pause-utility-actions"><button class="command quiet" data-show="chapters" data-i18n="chapterSelect"></button><button class="command quiet" data-show="language" data-i18n="language"></button></div>
   <section id="chapter-complete" class="screen"><p class="eyebrow" data-i18n="chapterCompleteEyebrow"></p><h2 data-i18n="chapterCompleteHeading"></h2><p data-i18n="chapterCompleteText"></p><button class="command" data-continue data-i18n="goOnToSelene"></button><button class="command quiet" data-show="chapters" data-i18n="chapterSelect"></button></section>
   <section id="tutorial-complete" class="screen"><div id="tutorial-complete-actions"><button class="command" data-tutorial-replay data-i18n="tutorialReplay"></button><button class="command quiet" data-tutorial-return data-i18n="chapterSelect"></button></div></section>
   <section id="ending" class="screen"><div class="end-image"><div class="end-art"></div><span></span></div><div class="myth"><p class="eyebrow" data-i18n="endingEyebrow"></p><h2 id="ending-heading"></h2><p data-i18n="myth1"></p><p data-i18n="myth2"></p><p data-i18n="myth3"></p><p data-i18n="myth4"></p><p data-i18n="myth5"></p><p data-i18n="mythCouplet1"></p><p data-i18n="mythCouplet2"></p><p class="complete" data-i18n="gameComplete"></p><button class="command" data-replay data-i18n="replayGame"></button><button class="command quiet" data-viverse="submit" data-i18n="submitMyRun"></button><p id="ending-notice" aria-live="polite"></p></div></section>
@@ -118,6 +120,9 @@ const screens = [...document.querySelectorAll('.screen')]
 const chapterFade = document.querySelector('#chapter-fade')
 const touchControls = document.querySelector('#touch-controls')
 const hud = document.querySelector('#hud')
+const pause = document.querySelector('#pause')
+const pauseUtilityActions = document.querySelector('#pause-utility-actions')
+const pauseTrigger = document.querySelector('#pause-trigger')
 const fragmentSlots = [...document.querySelectorAll('.fragment-slots i')]
 const restartDialog = document.querySelector('#restart-dialog')
 const lockboxHint = document.querySelector('#lockbox-hint')
@@ -148,7 +153,7 @@ const refreshTutorial = () => {
   if (!visible) return
   const [, copyKey] = HELIOS_TUTORIAL_STEPS[tutorial.step]
   tutorialProgress.textContent = t('tutorialProgress', { current: tutorial.step + 1, total: HELIOS_TUTORIAL_STEPS.length })
-  tutorialCopy.textContent = t(copyKey)
+  tutorialCopy.textContent = formatUiLines(t(copyKey))
   tutorialSkip.textContent = t('tutorialSkip')
 }
 const advanceTutorial = (action) => {
@@ -287,8 +292,11 @@ async function submitRun() {
 let languageReturnScreen = 'start'
 const show = (id, returnScreen = null) => {
   if (id === 'language') languageReturnScreen = returnScreen || screens.find((screen) => screen.classList.contains('visible'))?.id || 'start'
-  const wasPaused = document.querySelector('#pause').classList.contains('visible')
+  const wasPaused = pause.classList.contains('visible')
   screens.forEach((screen) => screen.classList.toggle('visible', screen.id === id))
+  pause.classList.toggle('visible', id === 'pause')
+  pauseUtilityActions.classList.toggle('visible', id === 'pause')
+  pauseTrigger.classList.toggle('visible', state.playing && !id)
   document.querySelector('#landing').classList.toggle('dimmed', id !== 'landing')
   hud.classList.toggle('visible', state.playing && id !== 'pause')
   touchControls.classList.toggle('active', state.playing && !id)
@@ -304,16 +312,24 @@ const updateChapterCards = () => {
   seleneCard.disabled = !state.unlocked
   seleneCard.querySelector('[data-lock]').textContent = state.unlocked ? t('selene.subtitle') : t('selene.locked')
 }
+const formatUiLines = (text) => text
+  .replace(/([.!?])\s+(?=\S)/g, '$1\n')
+  .replace(/([。！？])\s*(?=\S)/g, '$1\n')
 // Everything with a data-i18n/data-i18n-aria hook plus the handful of strings assembled with
 // markup (a <br>, an inline link) that textContent can't carry. Called once at startup and again
 // whenever the language changes.
 const applyTranslations = () => {
   document.documentElement.lang = getLocale()
-  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n) })
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    const text = t(el.dataset.i18n)
+    el.textContent = el.matches('button, aside, #scope-label') ? formatUiLines(text) : text
+  })
   document.querySelectorAll('[data-i18n-aria]').forEach((el) => { el.setAttribute('aria-label', t(el.dataset.i18nAria)) })
   document.querySelector('#landing-pitch').innerHTML = `${t('pitchLine1')}<br>${t('pitchLine2')}`
   document.querySelector('#ending-heading').innerHTML = `${t('endingHeadingLine1')}<br>${t('endingHeadingLine2')}`
   document.querySelector('#credits-line').innerHTML = t('creditsText', { link: '<a href="https://game-icons.net" target="_blank" rel="noopener">game-icons.net</a>' })
+  pauseTrigger.textContent = `ESC / ${t('dtPause')}`
+  pauseTrigger.setAttribute('aria-label', `Escape / ${t('dtPause')}`)
   updateChapterCards()
   if (state.chapter) document.querySelector('#chapter-name').textContent = `${state.chapter.number} / ${t(`${state.chapter.id}.title`).toUpperCase()}`
   updateFragmentHud()
@@ -448,6 +464,7 @@ document.addEventListener('click', (event) => {
     beginReveal(loader.objects.exit.position)
     return
   }
+  if (target.dataset.pauseToggle !== undefined) { show('pause'); return }
   if (target.dataset.restart !== undefined) { restartDialog.showModal(); return }
   if (target.dataset.confirmRestart !== undefined) { restartDialog.close(); restartGame(); return }
   if (target.dataset.languageEntry !== undefined) { show('language', 'start'); return }
@@ -505,7 +522,14 @@ addEventListener('keydown', (event) => {
     }
     if (result?.opened && box === loader.objects.lensBox) loader.objects.triangulation.revealLens()
   }
-  if (event.code === 'KeyQ' && !event.repeat && state.playing && !state.revealing) loader.nearestLockbox(player.position)?.selectNext(player.position)
+  if (event.code === 'KeyQ' && !event.repeat && state.playing && !state.revealing) {
+    if (telescope.raised) {
+      aim.beginFocus()
+      advanceTutorial('focus')
+    } else {
+      loader.nearestLockbox(player.position)?.selectNext(player.position)
+    }
+  }
   // The poem belongs to the lockbox, not to the chapter: openable anywhere it stopped reading as
   // something the player found. Always allow closing it, so it can never be stranded on screen.
   if (event.code === 'KeyH' && !event.repeat && state.playing && !state.revealing) {
@@ -520,7 +544,10 @@ addEventListener('keydown', (event) => {
   }
   if (event.code === 'Escape' && state.playing) show(document.querySelector('#pause').classList.contains('visible') ? '' : 'pause')
 })
-addEventListener('keyup', (event) => held.delete(event.code))
+addEventListener('keyup', (event) => {
+  held.delete(event.code)
+  if (event.code === 'KeyQ') aim.cancelFocus()
+})
 touchControls.querySelectorAll('[data-touch-key]').forEach((button) => {
   const code = button.dataset.touchKey
   const dispatchKey = (type) => dispatchEvent(new KeyboardEvent(type, { code, bubbles: true, cancelable: true }))
@@ -540,13 +567,6 @@ touchControls.querySelectorAll('[data-touch-key]').forEach((button) => {
   button.addEventListener('lostpointercapture', release)
 })
 addEventListener('pointermove', (event) => aim.move(event.clientX / innerWidth, event.clientY / innerHeight))
-addEventListener('pointerdown', (event) => {
-  if (!state.playing || state.revealing || !telescope.raised || event.button !== 0) return
-  event.preventDefault()
-  aim.beginFocus()
-  advanceTutorial('focus')
-})
-addEventListener('pointerup', () => aim.cancelFocus())
 
 const groundedPlatform = () => (player.body.grounded
   ? loader.standingOn(player.position.x, player.body.y - player.body.hh)
@@ -622,15 +642,16 @@ function onboardingLine() {
 }
 
 function focusLine(objects) {
+  const focusPrompt = (key) => t(key).replace(/^[^/／]+[／/]\s*/, 'HOLD Q / ')
   if (!telescope.raised) return ''
   if (state.chapter.id !== 'selene') {
-    return loader.nearestMirror(player.position) ? t('focusOnMirror') : t('focusGeneric')
+    return loader.nearestMirror(player.position) ? focusPrompt('focusOnMirror') : focusPrompt('focusGeneric')
   }
   if (objects.exit?.group.visible) return t('drawDoor')
-  if (objects.moon && telescope.power === 'selene' && aim.hovers(objects.moon.position, camera)) return t('turnMoon')
-  if (objects.ladderWall?.active && aim.hovers(objects.ladderWall.position, camera)) return t('unfoldLadder')
-  if (telescope.power === 'selene' && objects.receivers.some((receiver) => receiver.held && aim.hovers(receiver.position, camera))) return t('turnDial')
-  return t('focusGeneric')
+  if (objects.moon && telescope.power === 'selene' && aim.hovers(objects.moon.position, camera)) return focusPrompt('turnMoon')
+  if (objects.ladderWall?.active && aim.hovers(objects.ladderWall.position, camera)) return focusPrompt('unfoldLadder')
+  if (telescope.power === 'selene' && objects.receivers.some((receiver) => receiver.held && aim.hovers(receiver.position, camera))) return focusPrompt('turnDial')
+  return focusPrompt('focusGeneric')
 }
 
 // --- Frame --------------------------------------------------------------------------------------
@@ -681,9 +702,10 @@ function update(delta) {
     : telescope.aimUnlocked ? t('raiseInstrument', { instrument }) : ''
   // The authored onboarding string used to be blanked on the very first frame, so the player's only
   // starting instruction never appeared. It is the fallback now, not the initial value.
-  document.querySelector('#scope-label').textContent = lockboxPrompt
+  document.querySelector('#scope-label').textContent = formatUiLines(lockboxPrompt
     || [telescopePrompt, focusLine(objects), mirrorPrompt].filter(Boolean).join('\n')
     || onboardingLine()
+  )
 
   loader.updatePhaseVisuals(telescope.raised, clock.elapsedTime)
   loader.updateGlow(clock.elapsedTime, player.position)

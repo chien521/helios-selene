@@ -20,15 +20,15 @@ export const helios = {
       { id: 'vista', x: -25, surfaceY: 3, w: 10 },
     ],
     springs: [
-      { id: 'spring', on: 'pit' },
+      { id: 'spring', on: 'pit', revealed: true },
       { id: 'upperSpring', on: 'hub' },
     ],
     mirrors: [
-      { id: 'heliostat', x: -25, y: 4.6, angle: 1.4, arc: [.6, 2.4] },
+      { id: 'heliostat', x: -25, y: 4.6, angle: 1.4, fullRotation: true },
     ],
     receivers: [
-      { id: 'sky-east', x: -21.6, y: 16 },
-      { id: 'sky-west', x: -28.4, y: 18 },
+      { id: 'sky-east', x: -21.6, y: 16, glow: '#36C7FF' },
+      { id: 'sky-west', x: -28.4, y: 18, glow: '#36C7FF' },
     ],
     lensReceivers: ['sky-east', 'sky-west'],
     lockbox: { on: 'climb', glow: '#f5b45d' },
@@ -49,6 +49,6 @@ export const helios = {
     lens: { x: 0, y: -8.45 },
     meltBridge: { wallX: 13.5, left: 13, right: 19, surfaceY: 8 },
     exitBridge: { left: 19, right: 25.5, surfaceY: 8.55, markerX: 16, markerY: 20 },
-    exit: { x: 42, nearX: 26.8, surfaceY: 8.55, visible: false },
+    exit: { x: 42, nearX: 26.8, surfaceY: 8.55, visible: true },
   },
 }

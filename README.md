@@ -33,13 +33,20 @@ npm run preview
 
 ## Deploy to VIVERSE
 
-Build a portable upload bundle with:
+Create the VIVERSE upload archive with:
 
 ```bash
-npm run build:viverse
+npm run package:viverse
 ```
 
-Zip the `dist/` directory itself, so the archive contains `dist/index.html` and `dist/assets/`, then upload that archive to VIVERSE. This matches SNOW's working VIVERSE package layout. GitHub Pages uses the dedicated `npm run build:github-pages` command in its deployment workflow.
+This creates `helios-selene-viverse.zip` at the project root. Upload that ZIP file to
+VIVERSE. Its root contains `index.html` and `assets/`; do not zip the project folder
+or the `dist/` folder around it, as that can add extra directory levels that VIVERSE
+cannot find.
+
+The VIVERSE bundle uses relative asset URLs, so it also works from the platform's
+content URL rather than only from the GitHub Pages path. GitHub Pages uses the
+dedicated `npm run build:github-pages` command in its deployment workflow.
 
 ## Controls
 
@@ -50,7 +57,7 @@ Zip the `dist/` directory itself, so the archive contains `dist/index.html` and 
 | Interact / turn a mirror | E |
 | Select a lockbox dial | Q |
 | Raise or lower the magnifier / telescope | R |
-| Focus | Hold left mouse button while raised |
+| Focus | Hold Q while raised |
 | Moon view | Space |
 | Pause | Escape |
 

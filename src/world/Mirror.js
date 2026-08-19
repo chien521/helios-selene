@@ -16,10 +16,11 @@ const DARK = '#3a2a18'
 // building real puzzles: they can be placed where the player can never stand, so the question
 // becomes "how do I get light TO that mirror" rather than "which way do I point this one".
 export class Mirror {
-  constructor(group, { id, x, y, angle = 0, arc = null, glow = '#ffd275' }) {
+  constructor(group, { id, x, y, angle = 0, arc = null, fullRotation = false, glow = '#ffd275' }) {
     this.id = id
     this.position = new THREE.Vector3(x, y, PLAYER_Z_DEPTH)
     this.arc = arc
+    this.fullRotation = fullRotation
     this.angle = arc ? Math.min(Math.max(angle, arc[0]), arc[1]) : angle
     this.sweep = 1
     this.lit = false
@@ -54,7 +55,7 @@ export class Mirror {
   }
 
   inRange(playerPosition) {
-    return this.group.visible && !!this.arc && playerPosition.distanceTo(this.position) <= INTERACTION_RANGE
+    return this.group.visible && (this.fullRotation || !!this.arc) && playerPosition.distanceTo(this.position) <= INTERACTION_RANGE
   }
 
   reveal() {
@@ -65,6 +66,11 @@ export class Mirror {
   // reach every angle without needing a second key to reverse.
   rotate(delta, rotating, playerPosition) {
     if (!rotating || !this.inRange(playerPosition)) return false
+    if (this.fullRotation) {
+      this.angle = THREE.MathUtils.euclideanModulo(this.angle + delta * TURN_SPEED, Math.PI * 2)
+      this.applyAngle()
+      return true
+    }
     const [min, max] = this.arc
     this.angle += delta * TURN_SPEED * this.sweep
     if (this.angle >= max) { this.angle = max; this.sweep = -1 }
